@@ -1,0 +1,863 @@
+// ============================================================
+// DGCC PES — Prisma Schema
+// Database: PostgreSQL (Supabase)
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ============================================================
+// ENUMS
+// ============================================================
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  GOVERNANCE_ADMIN
+  UNIT_MANAGER
+  PROJECT_OWNER
+  EDITOR
+  VIEWER
+  TECH_ADMIN      // Nora — full access
+  IMPORT_VIEWER   // Eman, Abeer — read + import/export
+  GOV_EDITOR      // Bushra, Malak, Alanoud — governance write, viewer elsewhere
+  DATA_ANALYST    // Nora (analysis role) — full read + export, no write
+}
+
+enum OrderType {
+  PROGRAM
+  PROJECT
+  DELIVERABLE
+  TASK
+  SUBTASK
+}
+
+enum OrderStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  UNDER_REVIEW
+  BLOCKED
+  ON_HOLD
+  DONE
+  CANCELLED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum RAGStatus {
+  RED
+  AMBER
+  GREEN
+  BLUE
+  GREY
+}
+
+enum ProjectPhase {
+  INITIATION
+  PLANNING
+  EXECUTION
+  MONITORING
+  CLOSURE
+}
+
+enum GovItemType {
+  POLICY
+  PROCEDURE
+  STANDARD
+  GUIDELINE
+  COMMITTEE_DECISION
+  CONTROL
+  COMPLIANCE_REQUIREMENT
+  UPDATE_ITEM
+}
+
+enum GovItemStatus {
+  DRAFT
+  ACTIVE
+  UNDER_REVIEW
+  SUPERSEDED
+  ARCHIVED
+}
+
+enum GovTaskType {
+  REVIEW
+  APPROVAL
+  DOCUMENTATION_UPDATE
+  COMPLIANCE_CHECK
+  POLICY_REVISION
+  EVIDENCE_COLLECTION
+  COMMUNICATION
+  TRAINING
+  IMPLEMENTATION_CHECK
+}
+
+enum GovTaskStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  UNDER_REVIEW
+  DONE
+  CANCELLED
+}
+
+enum ChangeType {
+  FEATURE
+  BUG_FIX
+  POLICY_UPDATE
+  SECURITY_PATCH
+  WORKFLOW_UPDATE
+  DATA_MODEL_UPDATE
+}
+
+enum ChangeStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  IN_PROGRESS
+  TESTING
+  RELEASED
+  REJECTED
+}
+
+enum GovReviewStatus {
+  PENDING
+  IN_REVIEW
+  APPROVED
+  REJECTED
+}
+
+enum BriefStatus {
+  DRAFT
+  UNDER_REVIEW
+  APPROVED
+  PUBLISHED
+  ARCHIVED
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+  EXPORT
+  IMPORT
+  STATUS_CHANGE
+  APPROVE
+  REJECT
+  PUBLISH
+  ARCHIVE
+  RESTORE
+}
+
+// ============================================================
+// MASTER DATA
+// ============================================================
+
+model Unit {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String
+  unitIndex   Int?
+  colorHex    String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  users       User[]
+  orders      Order[]
+  projects    Project[]
+  govItems    GovernanceItem[]
+  briefs      WeeklyBrief[]
+
+  @@map("units")
+}
+
+model Project {
+  id          String       @id @default(cuid())
+  code        String       @unique
+  name        String
+  unitId      String?
+  unit        Unit?        @relation(fields: [unitId], references: [id])
+  phase       ProjectPhase @default(PLANNING)
+  startDate   DateTime?
+  endDate     DateTime?
+  sponsor     String?
+  description String?
+  isActive    Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  createdById String?
+  createdBy   User?        @relation("ProjectCreatedBy", fields: [createdById], references: [id])
+
+  // Relations
+  orders      Order[]
+
+  @@map("projects")
+}
+
+// ============================================================
+// AUTH & RBAC
+// ============================================================
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String
+  initials      String?
+  passwordHash  String?
+  supabaseId    String?   @unique
+  role          Role      @default(VIEWER)
+  unitId        String?
+  unit          Unit?     @relation(fields: [unitId], references: [id])
+  isActive      Boolean   @default(true)
+  lastLoginAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  ordersCreated         Order[]          @relation("OrderCreatedBy")
+  ordersUpdated         Order[]          @relation("OrderUpdatedBy")
+  ordersOwned           Order[]          @relation("OrderOwner")
+  projectsCreated       Project[]        @relation("ProjectCreatedBy")
+  govItemsOwned         GovernanceItem[] @relation("GovItemOwner")
+  govItemsReviewed      GovernanceItem[] @relation("GovItemReviewer")
+  govTasksAssigned      GovernanceTask[] @relation("GovTaskAssignee")
+  govTasksApproved      GovernanceTask[] @relation("GovTaskApprover")
+  changesRequested      ChangeRequest[]  @relation("ChangeRequestedBy")
+  changesApproved       ChangeRequest[]  @relation("ChangeApprovedBy")
+  briefsPrepared        WeeklyBrief[]    @relation("BriefPreparedBy")
+  briefsReviewed        WeeklyBrief[]    @relation("BriefReviewedBy")
+  descriptionsEdited    OrderDescription[] @relation("DescriptionEditedBy")
+  updateLogsCreated     UpdateLog[]        @relation("UpdateLogCreatedBy")
+  updateLogsReviewed    UpdateLog[]        @relation("UpdateLogGovReviewer")
+  raidItemsOwned        RAIDItem[]         @relation("RAIDOwner")
+  attachmentsUploaded   Attachment[]       @relation("AttachmentUploader")
+  auditLogs             AuditLog[]
+  savedViews            SavedView[]
+  notifications         Notification[]     @relation("UserNotifications")
+  srfAssigned           UpcomingOrder[]    @relation("SRFAssignee")
+
+  @@map("users")
+}
+
+// ============================================================
+// CORE TRACKER
+// ============================================================
+
+model Order {
+  id               String      @id @default(cuid())
+  orderCode        String      @unique
+  type             OrderType   @default(TASK)
+
+  unitId           String?
+  unit             Unit?       @relation(fields: [unitId], references: [id])
+  projectId        String?
+  project          Project?    @relation(fields: [projectId], references: [id])
+
+  name             String
+  parentId         String?
+  parent           Order?      @relation("OrderHierarchy", fields: [parentId], references: [id])
+  children         Order[]     @relation("OrderHierarchy")
+
+  ownerId          String?
+  owner            User?       @relation("OrderOwner", fields: [ownerId], references: [id])
+
+  priority         Priority    @default(MEDIUM)
+  status           OrderStatus @default(NOT_STARTED)
+
+  startDate        DateTime?
+  dueDate          DateTime?
+
+  percentComplete  Int         @default(0)
+  plannedPercent   Int?
+
+  ragAuto          RAGStatus?
+  ragOverride      RAGStatus?
+  ragOverrideNote  String?
+  ragOverrideById  String?
+
+  rescheduleCount  Int         @default(0)
+  dependencies     String?
+  links            String?
+  notes            String?     @db.Text
+  govReviewRequired Boolean    @default(false)
+  projectType      String?     // SYSTEM_BUILD | DATA_ANALYSIS | OTHER
+
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+  createdById      String?
+  createdBy        User?       @relation("OrderCreatedBy", fields: [createdById], references: [id])
+  updatedById      String?
+  updatedBy        User?       @relation("OrderUpdatedBy", fields: [updatedById], references: [id])
+  isDeleted        Boolean     @default(false)
+  deletedAt        DateTime?
+
+  auditLogs        AuditLog[]         @relation("OrderAuditLogs")
+  description      OrderDescription?
+  updateLogs       UpdateLog[]
+  milestones       Milestone[]
+  raidItems        RAIDItem[]
+  attachments      Attachment[]
+
+  @@index([unitId])
+  @@index([projectId])
+  @@index([status])
+  @@index([priority])
+  @@index([isDeleted])
+  @@index([orderCode])
+  @@map("orders")
+}
+
+// ============================================================
+// GOVERNANCE MODULE
+// ============================================================
+
+model GovernanceItem {
+  id               String        @id @default(cuid())
+  govCode          String        @unique
+  title            String
+  type             GovItemType
+  status           GovItemStatus @default(DRAFT)
+  priority         Priority      @default(MEDIUM)
+  riskLevel        Priority      @default(MEDIUM)
+  complianceImpact String?
+
+  unitId           String?
+  unit             Unit?         @relation(fields: [unitId], references: [id])
+  relatedModule    String?
+
+  ownerId          String?
+  owner            User?         @relation("GovItemOwner", fields: [ownerId], references: [id])
+  reviewerId       String?
+  reviewer         User?         @relation("GovItemReviewer", fields: [reviewerId], references: [id])
+
+  version          String        @default("1.0")
+  effectiveDate    DateTime?
+  reviewCycleDays  Int?
+  nextReviewDate   DateTime?
+  source           String?
+
+  notes            String?       @db.Text
+  evidenceLinks    String?
+
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  createdById      String?
+  updatedById      String?
+  isDeleted        Boolean       @default(false)
+  deletedAt        DateTime?
+
+  govTasks         GovernanceTask[]
+  auditLogs        AuditLog[]    @relation("GovItemAuditLogs")
+  updateLogs       UpdateLog[]   @relation("GovItemUpdateLogs")
+  attachments      Attachment[]
+
+  @@index([status])
+  @@index([unitId])
+  @@index([nextReviewDate])
+  @@map("governance_items")
+}
+
+model GovernanceTask {
+  id               String        @id @default(cuid())
+  taskCode         String        @unique
+  title            String
+  type             GovTaskType
+  description      String?       @db.Text
+  status           GovTaskStatus @default(NOT_STARTED)
+  priority         Priority      @default(MEDIUM)
+
+  govItemId        String?
+  govItem          GovernanceItem? @relation(fields: [govItemId], references: [id])
+  changeRequestId  String?
+  changeRequest    ChangeRequest?  @relation(fields: [changeRequestId], references: [id])
+
+  assigneeId       String?
+  assignee         User?         @relation("GovTaskAssignee", fields: [assigneeId], references: [id])
+  dueDate          DateTime?
+  completionDate   DateTime?
+
+  requiredEvidence String?
+  completionEvidence String?
+
+  approvalRequired Boolean       @default(false)
+  approverId       String?
+  approver         User?         @relation("GovTaskApprover", fields: [approverId], references: [id])
+  approvedAt       DateTime?
+
+  isOverdue        Boolean       @default(false)
+
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  createdById      String?
+  isDeleted        Boolean       @default(false)
+
+  @@index([status])
+  @@index([govItemId])
+  @@index([changeRequestId])
+  @@index([dueDate])
+  @@map("governance_tasks")
+}
+
+// ============================================================
+// CHANGE CONTROL
+// ============================================================
+
+model ChangeRequest {
+  id               String         @id @default(cuid())
+  changeCode       String         @unique
+  title            String
+  type             ChangeType
+  summary          String?        @db.Text
+  affectedModules  String?
+  status           ChangeStatus   @default(DRAFT)
+
+  govReviewStatus  GovReviewStatus @default(PENDING)
+
+  riskLevel        Priority       @default(MEDIUM)
+  riskAssessment   String?        @db.Text
+  rollbackPlan     String?        @db.Text
+  testingStatus    String?
+  uatSignoff       String?
+  docUpdated       Boolean        @default(false)
+  trainingDone     Boolean        @default(false)
+  complianceImpact String?
+
+  requestedById    String?
+  requestedBy      User?          @relation("ChangeRequestedBy", fields: [requestedById], references: [id])
+  approvedById     String?
+  approvedBy       User?          @relation("ChangeApprovedBy", fields: [approvedById], references: [id])
+
+  plannedReleaseDate DateTime?
+  actualReleaseDate  DateTime?
+
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  createdById      String?
+  isDeleted        Boolean        @default(false)
+
+  govTasks         GovernanceTask[]
+  auditLogs        AuditLog[]     @relation("ChangeAuditLogs")
+
+  @@index([status])
+  @@index([govReviewStatus])
+  @@map("change_requests")
+}
+
+// ============================================================
+// WEEKLY BRIEFS
+// ============================================================
+
+model WeeklyBrief {
+  id            String      @id @default(cuid())
+  briefCode     String      @unique
+  title         String
+  status        BriefStatus @default(DRAFT)
+  version       String      @default("1.0")
+
+  weekStart     DateTime?
+  weekEnd       DateTime?
+
+  preparedById  String?
+  preparedBy    User?       @relation("BriefPreparedBy", fields: [preparedById], references: [id])
+  reviewedById  String?
+  reviewedBy    User?       @relation("BriefReviewedBy", fields: [reviewedById], references: [id])
+
+  unitId        String?
+  unit          Unit?       @relation(fields: [unitId], references: [id])
+
+  content       Json?
+  notes         String?
+
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  createdById   String?
+  publishedAt   DateTime?
+  isDeleted     Boolean     @default(false)
+
+  @@index([status])
+  @@index([unitId])
+  @@map("weekly_briefs")
+}
+
+// ============================================================
+// ORDER DESCRIPTION
+// ============================================================
+
+model OrderDescription {
+  id                 String   @id @default(cuid())
+  orderId            String   @unique
+  order              Order    @relation(fields: [orderId], references: [id])
+
+  objective          String?  @db.Text
+  scope              String?  @db.Text
+  rationale          String?  @db.Text
+
+  narrativeSummary   String?  @db.Text
+  bulletSummary      String?  @db.Text
+  keyDeliverables    String?  @db.Text
+  institutionalImpact String? @db.Text
+  stakeholders       String?  @db.Text
+  dependencies       String?  @db.Text
+  approvalNeeds      String?  @db.Text
+
+  governanceImpact   String?  @db.Text
+  affectedUnit       String?
+  relatedPolicies    String?
+  requiredEvidence   String?  @db.Text
+  risks              String?  @db.Text
+
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  lastEditedById     String?
+  lastEditedBy       User?    @relation("DescriptionEditedBy", fields: [lastEditedById], references: [id])
+
+  @@map("order_descriptions")
+}
+
+// ============================================================
+// UPDATE LOG
+// ============================================================
+
+enum UpdateType {
+  PROGRESS_UPDATE
+  SCOPE_CHANGE
+  DATE_CHANGE
+  OWNER_CHANGE
+  GOVERNANCE_UPDATE
+  POLICY_CHANGE
+  EVIDENCE_ADDED
+  NOTE
+  SYSTEM_CHANGE
+}
+
+model UpdateLog {
+  id               String     @id @default(cuid())
+  logCode          String     @unique
+
+  orderId          String?
+  order            Order?     @relation(fields: [orderId], references: [id])
+  govItemId        String?
+  govItem          GovernanceItem? @relation("GovItemUpdateLogs", fields: [govItemId], references: [id])
+
+  updateType       UpdateType
+  title            String
+  description      String?  @db.Text
+
+  fieldChanged     String?
+  oldValue         String?
+  newValue         String?
+  changeReason     String?  @db.Text
+
+  requiresGovReview  Boolean  @default(false)
+  govReviewStatus    String?
+  govReviewedById    String?
+  govReviewedBy      User?    @relation("UpdateLogGovReviewer", fields: [govReviewedById], references: [id])
+  govReviewedAt      DateTime?
+  govReviewNotes     String?  @db.Text
+
+  evidenceLinks    String?
+
+  createdById      String?
+  createdBy        User?    @relation("UpdateLogCreatedBy", fields: [createdById], references: [id])
+  createdAt        DateTime @default(now())
+
+  @@index([orderId])
+  @@index([govItemId])
+  @@index([updateType])
+  @@index([requiresGovReview])
+  @@map("update_logs")
+}
+
+// ============================================================
+// MILESTONES
+// ============================================================
+
+enum MilestoneStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+  DELAYED
+  CANCELLED
+}
+
+model Milestone {
+  id                     String          @id @default(cuid())
+  orderId                String
+  order                  Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  title                  String
+  description            String?         @db.Text
+  status                 MilestoneStatus @default(NOT_STARTED)
+
+  plannedDate            DateTime?
+  actualDate             DateTime?
+  plannedPercent         Int?
+  actualPercent          Int?
+
+  varianceDays           Int?
+  note                   String?         @db.Text
+  sortOrder              Int             @default(0)
+
+  createdAt              DateTime        @default(now())
+  updatedAt              DateTime        @updatedAt
+  createdById            String?
+
+  @@index([orderId])
+  @@index([status])
+  @@map("milestones")
+}
+
+// ============================================================
+// RAID REGISTER
+// ============================================================
+
+enum RAIDCategory {
+  RISK
+  ASSUMPTION
+  ISSUE
+  DECISION
+}
+
+enum RAIDStatus {
+  OPEN
+  MITIGATED
+  CLOSED
+  ESCALATED
+  ACCEPTED
+}
+
+model RAIDItem {
+  id                String       @id @default(cuid())
+  orderId           String
+  order             Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  category          RAIDCategory
+  title             String
+  description       String?      @db.Text
+  severity          Priority     @default(MEDIUM)
+  status            RAIDStatus   @default(OPEN)
+
+  ownerId           String?
+  owner             User?        @relation("RAIDOwner", fields: [ownerId], references: [id])
+  dueDate           DateTime?
+  mitigationPlan    String?      @db.Text
+  resolutionNote    String?      @db.Text
+
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  createdById       String?
+
+  @@index([orderId])
+  @@index([category])
+  @@index([status])
+  @@map("raid_items")
+}
+
+// ============================================================
+// ATTACHMENTS / EVIDENCE
+// ============================================================
+
+enum AttachmentCategory {
+  POLICY
+  MINUTES
+  EVIDENCE
+  APPROVAL
+  DELIVERABLE
+  REPORT
+  OTHER
+}
+
+model Attachment {
+  id                String             @id @default(cuid())
+  orderId           String?
+  order             Order?             @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  govItemId         String?
+  govItem           GovernanceItem?    @relation(fields: [govItemId], references: [id], onDelete: Cascade)
+
+  category          AttachmentCategory @default(OTHER)
+  title             String
+  url               String
+  fileName          String?
+  description       String?
+
+  uploadedById      String?
+  uploadedBy        User?              @relation("AttachmentUploader", fields: [uploadedById], references: [id])
+  createdAt         DateTime           @default(now())
+
+  @@index([orderId])
+  @@index([govItemId])
+  @@map("attachments")
+}
+
+// ============================================================
+// LOOKUP TABLES
+// ============================================================
+
+model LookupValue {
+  id          String   @id @default(cuid())
+  category    String
+  value       String
+  label       String
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  isSystem    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([category, value])
+  @@index([category])
+  @@map("lookup_values")
+}
+
+// ============================================================
+// SEQUENCES
+// ============================================================
+
+model Sequence {
+  id       String @id
+  prefix   String
+  padding  Int    @default(4)
+  current  Int    @default(0)
+
+  @@map("sequences")
+}
+
+// ============================================================
+// AUDIT LOG
+// ============================================================
+
+model AuditLog {
+  id          String      @id @default(cuid())
+  action      AuditAction
+  module      String
+  recordId    String?
+  recordCode  String?
+  field       String?
+  oldValue    String?     @db.Text
+  newValue    String?     @db.Text
+  notes       String?
+
+  userId      String?
+  user        User?       @relation(fields: [userId], references: [id])
+  userEmail   String?
+  userName    String?
+  ipAddress   String?
+  userAgent   String?
+
+  createdAt   DateTime    @default(now())
+
+  orderId     String?
+  order       Order?      @relation("OrderAuditLogs", fields: [orderId], references: [id])
+  govItemId   String?
+  govItem     GovernanceItem? @relation("GovItemAuditLogs", fields: [govItemId], references: [id])
+  changeId    String?
+  change      ChangeRequest? @relation("ChangeAuditLogs", fields: [changeId], references: [id])
+
+  @@index([module])
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+  @@index([recordId])
+  @@map("audit_logs")
+}
+
+// ============================================================
+// SAVED VIEWS
+// ============================================================
+
+model SavedView {
+  id        String   @id @default(cuid())
+  name      String
+  filters   String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@map("saved_views")
+}
+
+// ============================================================
+// NOTIFICATIONS (Phase 4)
+// ============================================================
+
+model Notification {
+  id         String   @id @default(cuid())
+  type       String
+  title      String
+  message    String
+  severity   String   @default("info")
+  isRead     Boolean  @default(false)
+  entityType String?
+  entityId   String?
+  entityCode String?
+  userId     String?
+  user       User?    @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+  readAt     DateTime?
+
+  @@index([userId, isRead])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+// ══════════════════════════════════════════════════════════════
+// Upcoming Orders — Service Requests from Stakeholders (SRF)
+// ══════════════════════════════════════════════════════════════
+model UpcomingOrder {
+  id            String    @id @default(cuid())
+  refCode       String    @unique
+
+  // Requester
+  unitName      String
+  contactName   String
+  contactEmail  String?
+  contactPhone  String?
+
+  // Request
+  serviceTypes  String?   // JSON array
+  helpTypes     String?   // JSON array
+  description   String    @db.Text
+  expectedOutput String?
+  internalNotes  String?  @db.Text
+
+  // Priority & timeline
+  priority      String    @default("NORMAL")
+  expectedStartDate DateTime?
+  deadline      DateTime?
+  businessJustification String?
+
+  // Data
+  dataClassification String?
+  hasPersonalData    Boolean @default(false)
+
+  // Kickoff
+  preferredDay  String?
+  preferredTime String?
+
+  // Status
+  status        String    @default("PENDING")
+  assignedToId  String?
+  assignedTo    User?     @relation("SRFAssignee", fields: [assignedToId], references: [id])
+  linkedOrderId String?
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@map("upcoming_orders")
+}

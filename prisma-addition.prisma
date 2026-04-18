@@ -1,0 +1,35 @@
+// ══════════════════════════════════════════════════════════════════
+// PHASE 4: Add this model to the END of your prisma/schema.prisma
+// ══════════════════════════════════════════════════════════════════
+
+model Notification {
+  id        String   @id @default(cuid())
+  type      String   // ORDER_OVERDUE, ORDER_DUE_SOON, GOV_REVIEW_OVERDUE, GOV_REVIEW_SOON, AUTO_DELAYED
+  title     String
+  message   String
+  severity  String   @default("info") // info, warning, critical
+  isRead    Boolean  @default(false)
+  
+  // Link to related entity
+  entityType String?  // "order" or "governance"
+  entityId   String?
+  entityCode String?  // orderCode or govCode for quick display
+
+  // Target user (null = all admins/managers)
+  userId    String?
+  user      User?    @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  readAt    DateTime?
+
+  @@index([userId, isRead])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+// ══════════════════════════════════════════════════════════════════
+// Also add this relation to the existing User model:
+//
+//   notifications  Notification[] @relation("UserNotifications")
+//
+// ══════════════════════════════════════════════════════════════════

@@ -168,21 +168,31 @@ export default function AppShell({ user, children }: { user: AuthUser; children:
 
         {/* User */}
         <div style={{
-          display: 'flex', alignItems: 'center', gap: 9,
-          padding: '10px 12px', borderBottom: '1px solid var(--border)', flexShrink: 0,
+          borderBottom: '1px solid var(--border)', flexShrink: 0,
         }}>
-          <div style={{
-            width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
-            background: roleColor + '15', border: `1.5px solid ${roleColor}40`,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 9.5, fontWeight: 700, color: roleColor,
-          }}>{initials}</div>
-          {sidebarOpen && (
-            <div style={{ overflow: 'hidden', flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.name}</div>
-              <div style={{ fontSize: 10, color: roleColor, fontWeight: 500, marginTop: 1 }}>{ROLE_LABEL[user.role] ?? user.role}</div>
+          <Link href="/profile" style={{ textDecoration: 'none' }}>
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 9,
+              padding: '10px 12px', cursor: 'pointer',
+              transition: 'background 0.1s',
+            }}
+            onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'}
+            onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}
+            >
+              <div style={{
+                width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
+                background: roleColor + '15', border: `1.5px solid ${roleColor}40`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 9.5, fontWeight: 700, color: roleColor,
+              }}>{initials}</div>
+              {sidebarOpen && (
+                <div style={{ overflow: 'hidden', flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.name}</div>
+                  <div style={{ fontSize: 10, color: roleColor, fontWeight: 500, marginTop: 1 }}>{ROLE_LABEL[user.role] ?? user.role}</div>
+                </div>
+              )}
             </div>
-          )}
+          </Link>
         </div>
 
         {/* Nav */}

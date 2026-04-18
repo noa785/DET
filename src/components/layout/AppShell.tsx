@@ -250,6 +250,25 @@ export default function AppShell({ user, children }: { user: AuthUser; children:
           ))}
         </nav>
 
+        {/* Developer Credit */}
+        {sidebarOpen && (
+          <div style={{
+            padding: '8px 14px 6px',
+            borderTop: '1px solid var(--border)',
+            flexShrink: 0,
+          }}>
+            <div style={{ fontSize: 9.5, color: 'var(--text-3)', letterSpacing: '0.02em' }}>
+              Designed & developed by
+            </div>
+            <div style={{ fontSize: 10.5, fontWeight: 600, color: 'var(--accent)', letterSpacing: '0.01em' }}>
+              Nora Aldossari
+            </div>
+            <div style={{ fontSize: 9, color: 'var(--text-3)', opacity: 0.7 }}>
+              DGCC · PNU · 2026
+            </div>
+          </div>
+        )}
+
         {/* Bottom */}
         <div style={{ padding: '6px 6px 8px', borderTop: '1px solid var(--border)', flexShrink: 0 }}>
           <button onClick={toggleTheme} title={theme === 'dark' ? 'Light Mode' : 'Dark Mode'}

@@ -148,6 +148,9 @@ export default function LoginForm() {
         Princess Nourah bint Abdulrahman University<br />
         <span style={{ opacity: 0.6 }}>© 2025 DGCC · All rights reserved</span>
       </p>
+      <p style={{ textAlign: 'center', fontSize: 10.5, color: 'var(--text-3)', marginTop: 8, opacity: 0.5 }}>
+        Designed & developed by <span style={{ fontWeight: 600, color: 'var(--accent)', opacity: 1 }}>Nora Aldossari</span> · DGCC · PNU · 2026
+      </p>
     </div>
   );
 }

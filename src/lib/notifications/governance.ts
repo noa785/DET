@@ -8,6 +8,10 @@ import { prisma } from "@/lib/prisma/client";
  * Roles that should be notified when an order needs governance review.
  * Anyone with governance:view OR governance:edit permission.
  * Listed explicitly to match Prisma enum values exactly.
+ *
+ * NOTE: DATA_ANALYST is intentionally excluded — it exists in the local
+ * Prisma schema but is not yet present in the production Postgres enum.
+ * Adding it would cause `findMany` to fail with error 22P02.
  */
 const GOVERNANCE_NOTIFIABLE_ROLES = [
   "SUPER_ADMIN",
@@ -20,7 +24,6 @@ const GOVERNANCE_NOTIFIABLE_ROLES = [
   "EDITOR",
   "VIEWER",
   "IMPORT_VIEWER",
-  "DATA_ANALYST",
 ] as const;
 
 interface NotifyGovernanceArgs {

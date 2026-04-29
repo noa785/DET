@@ -42,7 +42,10 @@ interface NotifyGovernanceArgs {
 export async function notifyGovernanceOfOrder(args: NotifyGovernanceArgs): Promise<number> {
   const { orderId, orderCode, orderName, triggeredByUserId, action = "created" } = args;
 
+  console.log(`[notifyGov] START — orderCode=${orderCode}, triggeredBy=${triggeredByUserId}, action=${action}`);
+
   const eligibleRoles = getGovernanceNotifiableRoles();
+  console.log(`[notifyGov] eligible roles (${eligibleRoles.length}):`, eligibleRoles);
 
   // Find all active users with eligible roles
   const recipients = await prisma.user.findMany({
@@ -51,10 +54,16 @@ export async function notifyGovernanceOfOrder(args: NotifyGovernanceArgs): Promi
       isActive: true,
       ...(triggeredByUserId ? { id: { not: triggeredByUserId } } : {}),
     },
-    select: { id: true },
+    select: { id: true, email: true, role: true },
   });
 
-  if (recipients.length === 0) return 0;
+  console.log(`[notifyGov] found ${recipients.length} recipients:`,
+    recipients.map((r: any) => `${r.email}(${r.role})`).join(', '));
+
+  if (recipients.length === 0) {
+    console.warn('[notifyGov] No recipients — nothing to do');
+    return 0;
+  }
 
   const title =
     action === "created"
@@ -67,18 +76,24 @@ export async function notifyGovernanceOfOrder(args: NotifyGovernanceArgs): Promi
       : `Order "${orderName}" has been flagged for governance review. Please review and add the relevant policy.`;
 
   // Create one notification per recipient (so unread counts work per-user)
-  const result = await prisma.notification.createMany({
-    data: recipients.map((u: { id: string }) => ({
-      type: "GOV_REVIEW_REQUESTED",
-      title,
-      message,
-      severity: "info",
-      entityType: "order",
-      entityId: orderId,
-      entityCode: orderCode,
-      userId: u.id,
-    })),
-  });
+  try {
+    const result = await prisma.notification.createMany({
+      data: recipients.map((u: { id: string }) => ({
+        type: "GOV_REVIEW_REQUESTED",
+        title,
+        message,
+        severity: "info",
+        entityType: "order",
+        entityId: orderId,
+        entityCode: orderCode,
+        userId: u.id,
+      })),
+    });
 
-  return result.count;
+    console.log(`[notifyGov] SUCCESS — created ${result.count} notifications`);
+    return result.count;
+  } catch (err) {
+    console.error('[notifyGov] createMany FAILED:', err);
+    throw err;
+  }
 }

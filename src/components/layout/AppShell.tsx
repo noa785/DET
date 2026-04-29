@@ -156,12 +156,15 @@ export default function AppShell({ user, children }: { user: AuthUser; children:
             </div>
           )}
           <button onClick={() => setSidebarOpen(o => !o)} style={{
-            marginLeft: 'auto', flexShrink: 0, width: 22, height: 22,
-            borderRadius: 4, border: '1px solid rgba(255,255,255,0.12)',
-            background: 'transparent', color: 'rgba(255,255,255,0.6)',
+            marginLeft: 'auto', flexShrink: 0, width: 26, height: 26,
+            borderRadius: 6, border: '1px solid rgba(123,183,232,0.35)',
+            background: 'rgba(123,183,232,0.10)', color: '#7BB7E8',
             cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
             transition: 'all 0.15s',
-          }}>
+          }}
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(123,183,232,0.22)'; (e.currentTarget as HTMLElement).style.color = '#ffffff'; (e.currentTarget as HTMLElement).style.borderColor = '#7BB7E8'; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(123,183,232,0.10)'; (e.currentTarget as HTMLElement).style.color = '#7BB7E8'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(123,183,232,0.35)'; }}
+          >
             {sidebarOpen ? Icons.chevronLeft : Icons.chevronRight}
           </button>
         </div>

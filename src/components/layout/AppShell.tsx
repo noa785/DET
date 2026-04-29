@@ -364,7 +364,7 @@ function Breadcrumb({ pathname }: { pathname: string }) {
   if (LABELS[pathname]) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5 }}>
-        <span style={{ color: 'var(--text-2)', fontWeight: 500, letterSpacing: '0.02em' }}>DGCC</span>
+        <Link href="/dashboard" style={{ color: 'var(--text-2)', fontWeight: 500, letterSpacing: '0.02em', textDecoration: 'none', cursor: 'pointer' }}>DGCC</Link>
         {Chevron}
         <span style={{ color: 'var(--text)', fontWeight: 600 }}>{LABELS[pathname]}</span>
       </div>
@@ -378,7 +378,7 @@ function Breadcrumb({ pathname }: { pathname: string }) {
   else { detail = segments[segments.length - 1]?.replace(/-/g, ' ') ?? 'Page'; }
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5 }}>
-      <span style={{ color: 'var(--text-2)', fontWeight: 500 }}>DGCC</span>
+      <Link href="/dashboard" style={{ color: 'var(--text-2)', fontWeight: 500, textDecoration: 'none', cursor: 'pointer' }}>DGCC</Link>
       {section && <>{Chevron}<span style={{ color: 'var(--text-2)' }}>{section}</span></>}
       {Chevron}
       <span style={{ color: 'var(--text)', fontWeight: 600, textTransform: 'capitalize' }}>{detail}</span>

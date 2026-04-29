@@ -49,6 +49,8 @@ export default async function EditOrderPage({
     dependencies:    order.dependencies ?? null,
     links:           order.links ?? null,
     notes:           order.notes ?? null,
+    govReviewRequired: order.govReviewRequired ?? false,
+    projectType:       (order.projectType as any) ?? null,
   };
 
   const initialDescription = order.description ? {

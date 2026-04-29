@@ -33,10 +33,10 @@ export default function NotificationBell() {
     } catch {}
   }, []);
 
-  // Fetch on mount + every 60 seconds
+  // Fetch on mount + every 30 seconds
   useEffect(() => {
     fetchNotifications();
-    const interval = setInterval(fetchNotifications, 60000);
+    const interval = setInterval(fetchNotifications, 30000);
     return () => clearInterval(interval);
   }, [fetchNotifications]);
 
@@ -91,6 +91,7 @@ export default function NotificationBell() {
       case "ORDER_DUE_SOON": return "⏰";
       case "GOV_REVIEW_OVERDUE": return "🛡️";
       case "GOV_REVIEW_SOON": return "📋";
+      case "GOV_REVIEW_REQUESTED": return "🛡️";
       default: return "🔔";
     }
   };
@@ -104,6 +105,8 @@ export default function NotificationBell() {
   };
 
   const getEntityLink = (n: Notification) => {
+    // Governance review notifications: take user to the order so they can review and add policy
+    if (n.type === "GOV_REVIEW_REQUESTED" && n.entityId) return `/orders/${n.entityId}`;
     if (n.entityType === "order" && n.entityId) return `/orders/${n.entityId}`;
     if (n.entityType === "governance" && n.entityId) return `/governance`;
     return null;

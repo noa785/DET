@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma/client';
 import { requirePermission, isErrorResponse } from '@/lib/auth/session';
 import { audit } from '@/lib/audit/logger';
 import { computeRAG, computePlannedPercent, shouldIncrementReschedule } from '@/lib/business-logic/orders';
+import { notifyGovernanceOfOrder } from '@/lib/notifications/governance';
 
 // ── Zod schema ─────────────────────────────────────────────────
 const CreateOrderSchema = z.object({
@@ -117,6 +118,22 @@ export async function POST(req: NextRequest) {
   });
 
   await audit({ action: 'CREATE', module: 'orders', user, recordId: order.id, recordCode: orderCode, notes: `Created "${data.name}"` });
+
+  // ── Auto-notify governance team if review is required ──
+  // Fire-and-forget: notification failures must NOT block order creation.
+  if (order.govReviewRequired) {
+    try {
+      await notifyGovernanceOfOrder({
+        orderId:           order.id,
+        orderCode:         order.orderCode,
+        orderName:         order.name,
+        triggeredByUserId: user.id,
+        action:            'created',
+      });
+    } catch (err) {
+      console.error('[orders.POST] Failed to notify governance:', err);
+    }
+  }
 
   return NextResponse.json({ data: order }, { status: 201 });
 }

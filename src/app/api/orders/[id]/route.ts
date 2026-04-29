@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma/client';
 import { requirePermission, isErrorResponse } from '@/lib/auth/session';
 import { audit, diffObjects } from '@/lib/audit/logger';
 import { computeRAG, computePlannedPercent, shouldIncrementReschedule } from '@/lib/business-logic/orders';
+import { notifyGovernanceOfOrder } from '@/lib/notifications/governance';
 
 const PatchOrderSchema = z.object({
   name:            z.string().min(1).max(500).trim().optional(),
@@ -131,6 +132,26 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
   if (diffs.length === 0) {
     await audit({ action: 'UPDATE', module: 'orders', user, recordId: params.id, recordCode: existing.orderCode, notes: 'No field changes' });
+  }
+
+  // ── Auto-notify governance if review flag was just turned ON ──
+  // Only fires when govReviewRequired transitions from false → true
+  // (avoids spamming on every edit of an already-flagged order).
+  const govReviewWasJustTurnedOn =
+    data.govReviewRequired === true && existing.govReviewRequired === false;
+
+  if (govReviewWasJustTurnedOn) {
+    try {
+      await notifyGovernanceOfOrder({
+        orderId:           updated.id,
+        orderCode:         existing.orderCode,
+        orderName:         updated.name,
+        triggeredByUserId: user.id,
+        action:            'flagged',
+      });
+    } catch (err) {
+      console.error('[orders.PATCH] Failed to notify governance:', err);
+    }
   }
 
   return NextResponse.json({ data: updated });

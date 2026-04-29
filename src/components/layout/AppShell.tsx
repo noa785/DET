@@ -351,11 +351,18 @@ function Breadcrumb({ pathname }: { pathname: string }) {
     '/units': 'Units', '/admin/users': 'Users & Roles',
     '/import-export': 'Import / Export', '/reports': 'Reports Center',
   };
+  const Chevron = (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+      stroke="var(--text-3)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+      style={{ flexShrink: 0, opacity: 0.7 }}>
+      <polyline points="9 18 15 12 9 6" />
+    </svg>
+  );
   if (LABELS[pathname]) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5 }}>
-        <span style={{ color: 'var(--text-3)', fontWeight: 500, letterSpacing: '0.02em' }}>DGCC</span>
-        <span style={{ color: 'var(--border-2)', fontSize: 10 }}>›</span>
+        <span style={{ color: 'var(--text-2)', fontWeight: 500, letterSpacing: '0.02em' }}>DGCC</span>
+        {Chevron}
         <span style={{ color: 'var(--text)', fontWeight: 600 }}>{LABELS[pathname]}</span>
       </div>
     );
@@ -368,9 +375,9 @@ function Breadcrumb({ pathname }: { pathname: string }) {
   else { detail = segments[segments.length - 1]?.replace(/-/g, ' ') ?? 'Page'; }
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5 }}>
-      <span style={{ color: 'var(--text-3)', fontWeight: 500 }}>DGCC</span>
-      {section && <><span style={{ color: 'var(--border-2)', fontSize: 10 }}>›</span><span style={{ color: 'var(--text-3)' }}>{section}</span></>}
-      <span style={{ color: 'var(--border-2)', fontSize: 10 }}>›</span>
+      <span style={{ color: 'var(--text-2)', fontWeight: 500 }}>DGCC</span>
+      {section && <>{Chevron}<span style={{ color: 'var(--text-2)' }}>{section}</span></>}
+      {Chevron}
       <span style={{ color: 'var(--text)', fontWeight: 600, textTransform: 'capitalize' }}>{detail}</span>
     </div>
   );

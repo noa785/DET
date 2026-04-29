@@ -1,49 +1,60 @@
 /* src/app/globals.css */
+/* ============================================================
+   DET — Color Palette: Navy + Sky on Off-White
+   Light mode  = off-white canvas, navy text, sky accents
+   Dark mode   = midnight navy canvas, soft sky text
+   ============================================================ */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* ── DARK THEME (default) ─────────────────────────────────────── */
+/* ── LIGHT THEME (default — institutional off-white) ──────────── */
 :root,
-[data-theme="dark"] {
-  --bg:        #080b10;
-  --surface:   #0f1420;
-  --surface-2: #141b2d;
-  --surface-3: #1a2238;
-  --border:    #1e2c44;
-  --border-2:  #253048;
-  --text:      #dde4f0;
-  --text-2:    #8896b4;
-  --text-3:    #4a5675;
-  --accent:    #3b82f6;
-  --accent-2:  #6366f1;
-  --accent-rgb: 59, 130, 246;
-  --green:     #10b981;
-  --red:       #ef4444;
-  --amber:     #f59e0b;
-  --shadow:    0 1px 3px rgba(0,0,0,0.5);
-  --shadow-lg: 0 4px 24px rgba(0,0,0,0.5);
+[data-theme="light"] {
+  --bg:        #FAFAF7;       /* off-white canvas */
+  --surface:   #ffffff;        /* card / panel bg */
+  --surface-2: #F4F4EE;        /* hover / secondary surface */
+  --surface-3: #EDEDE5;        /* tertiary / chips */
+  --border:    #E5E5DD;        /* default border */
+  --border-2:  #D4D4CC;        /* hover border */
+  --text:      #0F1F3D;        /* dark navy text */
+  --text-2:    #4B5673;        /* muted navy */
+  --text-3:    #8B95B0;        /* hint text */
+  --accent:    #1B3A6B;        /* royal navy — primary action */
+  --accent-2:  #3D6FB5;        /* mid navy */
+  --accent-rgb: 27, 58, 107;
+  --sky:       #7BB7E8;        /* sky-blue accent */
+  --sky-soft:  #C7E2F5;        /* sky-light fill */
+  --sky-rgb:   123, 183, 232;
+  --green:     #1D9E75;
+  --red:       #DC2626;
+  --amber:     #D97706;
+  --shadow:    0 1px 3px rgba(15,31,61,0.06);
+  --shadow-lg: 0 8px 32px rgba(15,31,61,0.10);
 }
 
-/* ── LIGHT THEME ─────────────────────────────────────────────── */
-[data-theme="light"] {
-  --bg:        #f1f4f9;
-  --surface:   #ffffff;
-  --surface-2: #f8f9fc;
-  --surface-3: #edf0f7;
-  --border:    #dde3ee;
-  --border-2:  #c9d1e3;
-  --text:      #0f172a;
-  --text-2:    #475569;
-  --text-3:    #94a3b8;
-  --accent:    #2563eb;
-  --accent-2:  #4f46e5;
-  --accent-rgb: 37, 99, 235;
-  --green:     #059669;
-  --red:       #dc2626;
-  --amber:     #d97706;
-  --shadow:    0 1px 3px rgba(15,23,42,0.08);
-  --shadow-lg: 0 4px 24px rgba(15,23,42,0.10);
+/* ── DARK THEME (deep navy canvas) ────────────────────────────── */
+[data-theme="dark"] {
+  --bg:        #0A1428;        /* deep midnight navy */
+  --surface:   #0F1F3D;        /* card surface */
+  --surface-2: #15294F;        /* hover */
+  --surface-3: #1B3461;        /* tertiary */
+  --border:    #1F3A6B;        /* borders */
+  --border-2:  #2C4A82;        /* hover border */
+  --text:      #E8EEF7;        /* near-white */
+  --text-2:    #A8B5CC;        /* muted */
+  --text-3:    #6B7894;        /* hint */
+  --accent:    #7BB7E8;        /* sky becomes primary on dark */
+  --accent-2:  #9CCBED;
+  --accent-rgb: 123, 183, 232;
+  --sky:       #C7E2F5;
+  --sky-soft:  rgba(199, 226, 245, 0.15);
+  --sky-rgb:   199, 226, 245;
+  --green:     #34D399;
+  --red:       #F87171;
+  --amber:     #FBBF24;
+  --shadow:    0 1px 3px rgba(0,0,0,0.4);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,0.5);
 }
 
 @layer base {
@@ -57,29 +68,35 @@
     -webkit-font-smoothing: antialiased;
     transition: background 0.2s ease, color 0.2s ease;
   }
-  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 99px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--accent-2); }
 }
 
 @layer components {
+  /* ── Cards ──────────────────────────────────────────────── */
   .pes-card {
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 8px;
+    border-radius: 10px;
     box-shadow: var(--shadow);
     overflow: hidden;
-    transition: border-color 0.15s ease;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
   }
-  .pes-card:hover { border-color: var(--border-2); }
+  .pes-card:hover {
+    border-color: var(--border-2);
+    box-shadow: var(--shadow-lg);
+  }
 
+  /* ── Inputs ─────────────────────────────────────────────── */
   .pes-input {
     width: 100%;
-    background: var(--surface-2);
+    background: var(--surface);
     border: 1px solid var(--border);
     color: var(--text);
-    border-radius: 7px;
-    padding: 0.5rem 0.75rem;
+    border-radius: 8px;
+    padding: 0.5625rem 0.875rem;
     font-size: 0.8125rem;
     outline: none;
     transition: border-color 0.15s ease, box-shadow 0.15s ease;
@@ -90,12 +107,13 @@
     box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.12);
   }
 
+  /* ── Buttons ────────────────────────────────────────────── */
   .pes-btn {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 0.4375rem 0.875rem;
-    border-radius: 7px;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
     font-size: 0.8125rem;
     font-weight: 500;
     cursor: pointer;
@@ -103,15 +121,20 @@
     transition: all 0.15s ease;
     white-space: nowrap;
     text-decoration: none;
+    letter-spacing: 0.01em;
   }
   .pes-btn-primary {
     background: var(--accent);
     color: #fff;
+    box-shadow: 0 1px 2px rgba(var(--accent-rgb), 0.2);
   }
   .pes-btn-primary:hover {
-    filter: brightness(1.1);
-    box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.2);
+    background: var(--accent-2);
+    box-shadow: 0 4px 12px rgba(var(--accent-rgb), 0.25);
+    transform: translateY(-1px);
   }
+  .pes-btn-primary:active { transform: translateY(0); }
+
   .pes-btn-ghost {
     background: transparent;
     color: var(--text-2);
@@ -120,47 +143,89 @@
   .pes-btn-ghost:hover {
     background: var(--surface-2);
     color: var(--text);
+    border-color: var(--accent-2);
   }
   .pes-btn-danger { background: var(--red); color: #fff; }
-  .pes-btn-danger:hover { filter: brightness(1.1); }
+  .pes-btn-danger:hover { filter: brightness(0.9); }
 
+  /* ── Labels ─────────────────────────────────────────────── */
   .pes-label {
     font-size: 0.6875rem;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.07em;
     font-weight: 600;
     text-transform: uppercase;
     color: var(--text-3);
   }
 
   .pes-page-title {
-    font-size: 1.375rem;
+    font-size: 1.5rem;
     font-weight: 700;
     color: var(--text);
     letter-spacing: -0.02em;
     line-height: 1.2;
   }
 
+  /* ── Sidebar nav items (when sidebar is light) ─────────── */
   .nav-item {
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 0.4375rem 0.625rem;
-    border-radius: 6px;
+    padding: 0.5rem 0.75rem;
+    border-radius: 7px;
     font-size: 0.8125rem;
     font-weight: 450;
     color: var(--text-2);
     text-decoration: none;
-    transition: background 0.1s ease, color 0.1s ease;
+    transition: background 0.12s ease, color 0.12s ease;
   }
   .nav-item:hover { background: var(--surface-2); color: var(--text); }
   .nav-item.active {
-    background: rgba(var(--accent-rgb), 0.1);
+    background: rgba(var(--accent-rgb), 0.10);
     color: var(--accent);
     font-weight: 500;
   }
-  [data-theme="light"] .nav-item.active {
-    background: rgba(var(--accent-rgb), 0.08);
+
+  /* ── Sidebar nav items (when sidebar is DARK navy) ─────── */
+  /* These are used by AppShell when the navy sidebar is rendered */
+  .nav-item-dark {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0.5rem 0.75rem;
+    border-radius: 7px;
+    font-size: 0.8125rem;
+    font-weight: 450;
+    color: rgba(255, 255, 255, 0.72);
+    text-decoration: none;
+    transition: background 0.12s ease, color 0.12s ease;
   }
+  .nav-item-dark:hover {
+    background: rgba(255, 255, 255, 0.06);
+    color: #ffffff;
+  }
+  .nav-item-dark.active {
+    background: #15294F;
+    color: #ffffff;
+    font-weight: 500;
+    box-shadow: inset 3px 0 0 #7BB7E8;
+  }
+
+  /* ── Status pills (semantic colors) ─────────────────────── */
+  .pes-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 9px;
+    border-radius: 5px;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+  }
+  .pes-pill-info    { background: var(--sky-soft); color: var(--accent); }
+  .pes-pill-success { background: rgba(29, 158, 117, 0.12); color: var(--green); }
+  .pes-pill-warning { background: rgba(217, 119, 6, 0.12); color: var(--amber); }
+  .pes-pill-danger  { background: rgba(220, 38, 38, 0.10); color: var(--red); }
+  .pes-pill-neutral { background: var(--surface-3); color: var(--text-2); }
 }
 
 /* ── Grid Editor — light mode overrides ─────────────────────── */

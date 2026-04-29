@@ -128,7 +128,14 @@ export default function NotificationBell() {
       {/* Bell Button */}
       <button
         onClick={() => setOpen(!open)}
-        className="relative p-2 rounded-lg hover:bg-slate-700/50 transition text-[var(--text-2)] hover:text-[var(--text)]"
+        className="relative p-2 rounded-lg transition"
+        style={{
+          background: 'transparent',
+          color: 'var(--text-2)',
+          border: '1px solid transparent',
+        }}
+        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; (e.currentTarget as HTMLElement).style.color = 'var(--text)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; }}
+        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'var(--text-2)'; (e.currentTarget as HTMLElement).style.borderColor = 'transparent'; }}
       >
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
@@ -139,7 +146,7 @@ export default function NotificationBell() {
           />
         </svg>
         {unreadCount > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 w-5 h-5 bg-red-500 text-[var(--text)] text-[10px] font-bold rounded-full flex items-center justify-center animate-pulse">
+          <span className="absolute -top-0.5 -right-0.5 w-5 h-5 text-white text-[10px] font-bold rounded-full flex items-center justify-center animate-pulse" style={{ background: '#DC2626' }}>
             {unreadCount > 9 ? "9+" : unreadCount}
           </span>
         )}
@@ -147,13 +154,13 @@ export default function NotificationBell() {
 
       {/* Dropdown */}
       {open && (
-        <div className="absolute right-0 top-12 w-[400px] bg-slate-800 border border-slate-700 rounded-xl shadow-2xl z-50 overflow-hidden">
+        <div className="absolute right-0 top-12 w-[400px] rounded-xl shadow-2xl z-50 overflow-hidden" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
           {/* Header */}
-          <div className="px-4 py-3 border-b border-slate-700 flex items-center justify-between bg-slate-700/30">
+          <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: '1px solid var(--border)', background: 'var(--surface-2)' }}>
             <div>
-              <span className="text-sm font-semibold text-[var(--text)]">Notifications</span>
+              <span className="text-sm font-semibold" style={{ color: 'var(--text)' }}>Notifications</span>
               {unreadCount > 0 && (
-                <span className="ml-2 px-1.5 py-0.5 bg-red-500/20 text-red-400 rounded-full text-[10px] font-bold">
+                <span className="ml-2 px-1.5 py-0.5 rounded-full text-[10px] font-bold" style={{ background: 'rgba(220,38,38,0.12)', color: 'var(--red)' }}>
                   {unreadCount} new
                 </span>
               )}
@@ -162,7 +169,10 @@ export default function NotificationBell() {
               {unreadCount > 0 && (
                 <button
                   onClick={markAllRead}
-                  className="text-xs text-blue-400 hover:text-blue-300 transition"
+                  className="text-xs transition"
+                  style={{ color: 'var(--accent)' }}
+                  onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = 'var(--accent-2)'}
+                  onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = 'var(--accent)'}
                 >
                   Mark all read
                 </button>
@@ -170,7 +180,10 @@ export default function NotificationBell() {
               <button
                 onClick={runRules}
                 disabled={loading}
-                className="text-xs text-[var(--text-2)] hover:text-[var(--text)] px-2 py-1 rounded border border-slate-600 hover:bg-slate-700 transition disabled:opacity-50"
+                className="text-xs px-2 py-1 rounded transition disabled:opacity-50"
+                style={{ color: 'var(--text-2)', border: '1px solid var(--border-2)', background: 'var(--surface)' }}
+                onMouseEnter={e => { if (!loading) { (e.currentTarget as HTMLElement).style.background = 'var(--surface-3)'; (e.currentTarget as HTMLElement).style.color = 'var(--text)'; } }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface)'; (e.currentTarget as HTMLElement).style.color = 'var(--text-2)'; }}
                 title="Run business rules now"
               >
                 {loading ? "⏳" : "⚡"} Scan
@@ -181,7 +194,7 @@ export default function NotificationBell() {
           {/* Notifications List */}
           <div className="max-h-[400px] overflow-y-auto">
             {notifications.length === 0 ? (
-              <div className="p-8 text-center text-[var(--text-3)]">
+              <div className="p-8 text-center" style={{ color: 'var(--text-3)' }}>
                 <div className="text-3xl mb-2">🔔</div>
                 <p className="text-sm">No notifications yet</p>
                 <p className="text-xs mt-1">Click ⚡ Scan to check for alerts</p>
@@ -194,28 +207,32 @@ export default function NotificationBell() {
                     key={n.id}
                     onClick={() => !n.isRead && markAsRead(n.id)}
                     className={`
-                      px-4 py-3 border-b border-slate-700/50 border-l-4 cursor-pointer
-                      transition hover:bg-slate-700/30
+                      px-4 py-3 border-l-4 cursor-pointer transition
                       ${getSeverityColor(n.severity)}
-                      ${!n.isRead ? "bg-slate-700/20" : ""}
                     `}
+                    style={{
+                      borderBottom: '1px solid var(--border)',
+                      background: !n.isRead ? 'rgba(123,183,232,0.06)' : 'transparent',
+                    }}
+                    onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'}
+                    onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = !n.isRead ? 'rgba(123,183,232,0.06)' : 'transparent'}
                   >
                     <div className="flex items-start gap-3">
                       <span className="text-lg mt-0.5">{getIcon(n.type)}</span>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2">
-                          <span className={`text-sm font-medium truncate ${!n.isRead ? "text-[var(--text)]" : "text-[var(--text-2)]"}`}>
+                          <span className="text-sm font-medium truncate" style={{ color: !n.isRead ? 'var(--text)' : 'var(--text-2)' }}>
                             {n.title}
                           </span>
                           {!n.isRead && (
-                            <span className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0" />
+                            <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: 'var(--accent)' }} />
                           )}
                         </div>
-                        <p className="text-xs text-[var(--text-2)] mt-0.5 line-clamp-2">{n.message}</p>
+                        <p className="text-xs mt-0.5 line-clamp-2" style={{ color: 'var(--text-2)' }}>{n.message}</p>
                         <div className="flex items-center gap-3 mt-1.5">
-                          <span className="text-[10px] text-[var(--text-3)]">{timeAgo(n.createdAt)}</span>
+                          <span className="text-[10px]" style={{ color: 'var(--text-3)' }}>{timeAgo(n.createdAt)}</span>
                           {n.entityCode && (
-                            <span className="text-[10px] font-mono text-blue-400/70">{n.entityCode}</span>
+                            <span className="text-[10px] font-mono" style={{ color: 'var(--accent-2)' }}>{n.entityCode}</span>
                           )}
                         </div>
                       </div>

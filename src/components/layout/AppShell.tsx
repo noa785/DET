@@ -124,41 +124,41 @@ export default function AppShell({ user, children }: { user: AuthUser; children:
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)' }}>
 
-      {/* ── SIDEBAR ─────────────────────────────────────────── */}
+      {/* ── SIDEBAR (always dark navy — institutional brand) ─── */}
       <aside style={{
         position: 'fixed', left: 0, top: 0, bottom: 0, zIndex: 50,
         width: sidebarOpen ? '240px' : '52px',
         display: 'flex', flexDirection: 'column',
-        background: 'var(--surface)',
-        borderRight: '1px solid var(--border)',
+        background: '#0F1F3D',
+        borderRight: '1px solid rgba(255,255,255,0.06)',
         transition: 'width 0.2s ease',
-        boxShadow: '1px 0 0 var(--border)',
+        boxShadow: '0 0 24px rgba(0,0,0,0.08)',
       }}>
 
         {/* Logo */}
         <div style={{
           display: 'flex', alignItems: 'center', gap: 10,
           padding: '0 14px', height: 56,
-          borderBottom: '1px solid var(--border)',
+          borderBottom: '1px solid rgba(255,255,255,0.08)',
           flexShrink: 0,
         }}>
           <div style={{
-            width: 28, height: 28, borderRadius: 6, flexShrink: 0,
-            background: 'var(--accent)',
+            width: 30, height: 30, borderRadius: 7, flexShrink: 0,
+            background: '#7BB7E8',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontWeight: 800, fontSize: 10, color: '#fff',
+            fontWeight: 700, fontSize: 11, color: '#0F1F3D',
             letterSpacing: '0.02em',
           }}>DG</div>
           {sidebarOpen && (
             <div style={{ flex: 1, overflow: 'hidden' }}>
-              <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text)', letterSpacing: '-0.01em', whiteSpace: 'nowrap' }}>DGCC Enterprise</div>
-              <div style={{ fontSize: 9.5, color: 'var(--text-3)', letterSpacing: '0.1em', textTransform: 'uppercase', marginTop: 1 }}>Digital Governance</div>
+              <div style={{ fontSize: 12.5, fontWeight: 600, color: '#ffffff', letterSpacing: '-0.01em', whiteSpace: 'nowrap' }}>DGCC Enterprise</div>
+              <div style={{ fontSize: 9, color: '#7BB7E8', letterSpacing: '0.1em', textTransform: 'uppercase', marginTop: 1 }}>Digital Governance</div>
             </div>
           )}
           <button onClick={() => setSidebarOpen(o => !o)} style={{
             marginLeft: 'auto', flexShrink: 0, width: 22, height: 22,
-            borderRadius: 4, border: '1px solid var(--border)',
-            background: 'transparent', color: 'var(--text-3)',
+            borderRadius: 4, border: '1px solid rgba(255,255,255,0.12)',
+            background: 'transparent', color: 'rgba(255,255,255,0.6)',
             cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
             transition: 'all 0.15s',
           }}>
@@ -168,7 +168,7 @@ export default function AppShell({ user, children }: { user: AuthUser; children:
 
         {/* User */}
         <div style={{
-          borderBottom: '1px solid var(--border)', flexShrink: 0,
+          borderBottom: '1px solid rgba(255,255,255,0.08)', flexShrink: 0,
         }}>
           <Link href="/profile" style={{ textDecoration: 'none' }}>
             <div style={{
@@ -176,19 +176,19 @@ export default function AppShell({ user, children }: { user: AuthUser; children:
               padding: '10px 12px', cursor: 'pointer',
               transition: 'background 0.1s',
             }}
-            onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'}
+            onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.04)'}
             onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}
             >
               <div style={{
-                width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
-                background: roleColor + '15', border: `1.5px solid ${roleColor}40`,
+                width: 30, height: 30, borderRadius: '50%', flexShrink: 0,
+                background: roleColor + '25', border: `1.5px solid ${roleColor}66`,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 9.5, fontWeight: 700, color: roleColor,
+                fontSize: 10, fontWeight: 700, color: '#fff',
               }}>{initials}</div>
               {sidebarOpen && (
                 <div style={{ overflow: 'hidden', flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.name}</div>
-                  <div style={{ fontSize: 10, color: roleColor, fontWeight: 500, marginTop: 1 }}>{ROLE_LABEL[user.role] ?? user.role}</div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: '#ffffff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.name}</div>
+                  <div style={{ fontSize: 10, color: '#7BB7E8', fontWeight: 500, marginTop: 1 }}>{ROLE_LABEL[user.role] ?? user.role}</div>
                 </div>
               )}
             </div>
@@ -196,20 +196,20 @@ export default function AppShell({ user, children }: { user: AuthUser; children:
         </div>
 
         {/* Nav */}
-        <nav style={{ flex: 1, overflowY: 'auto', padding: '6px 6px 0', scrollbarWidth: 'none' }}>
+        <nav style={{ flex: 1, overflowY: 'auto', padding: '8px 8px 0', scrollbarWidth: 'none' }}>
           {NAV.map(group => (
-            <div key={group.group} style={{ marginBottom: 2 }}>
+            <div key={group.group} style={{ marginBottom: 4 }}>
               {sidebarOpen && (
                 <div style={{
-                  fontSize: 9, fontWeight: 700, letterSpacing: '0.12em',
-                  textTransform: 'uppercase', color: 'var(--text-3)',
-                  padding: '10px 8px 4px',
+                  fontSize: 9, fontWeight: 600, letterSpacing: '0.12em',
+                  textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)',
+                  padding: '12px 8px 6px',
                 }}>
                   {group.group}
                 </div>
               )}
               {!sidebarOpen && group !== NAV[0] && (
-                <div style={{ height: 1, background: 'var(--border)', margin: '5px 6px' }} />
+                <div style={{ height: 1, background: 'rgba(255,255,255,0.08)', margin: '6px 6px' }} />
               )}
               {group.items.map((item: any) => {
                 if (item.perm && !can(user, item.perm)) return null;
@@ -218,27 +218,28 @@ export default function AppShell({ user, children }: { user: AuthUser; children:
                   <Link key={item.href} href={item.href}
                     title={!sidebarOpen ? item.label : undefined}
                     style={{
-                      display: 'flex', alignItems: 'center', gap: 9,
-                      padding: '6.5px 8px', borderRadius: 5, fontSize: 12.5,
-                      fontWeight: isActive ? 600 : 400,
-                      color: isActive ? 'var(--accent)' : 'var(--text-2)',
-                      background: isActive ? `rgba(var(--accent-rgb), 0.08)` : 'transparent',
-                      marginBottom: 1, textDecoration: 'none',
-                      transition: 'all 0.1s',
+                      display: 'flex', alignItems: 'center', gap: 10,
+                      padding: '7.5px 10px', borderRadius: 6, fontSize: 12.5,
+                      fontWeight: isActive ? 500 : 400,
+                      color: isActive ? '#ffffff' : 'rgba(255,255,255,0.72)',
+                      background: isActive ? '#15294F' : 'transparent',
+                      boxShadow: isActive ? 'inset 3px 0 0 #7BB7E8' : 'none',
+                      marginBottom: 2, textDecoration: 'none',
+                      transition: 'all 0.12s',
                       justifyContent: sidebarOpen ? 'flex-start' : 'center',
                     }}
-                    onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; (e.currentTarget as HTMLElement).style.color = 'var(--text)'; }}
-                    onMouseLeave={e => { if (!isActive) { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'var(--text-2)'; } }}
+                    onMouseEnter={e => { if (!isActive) { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.06)'; (e.currentTarget as HTMLElement).style.color = '#ffffff'; } }}
+                    onMouseLeave={e => { if (!isActive) { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.72)'; } }}
                   >
-                    <span style={{ flexShrink: 0, opacity: isActive ? 1 : 0.65, display: 'flex' }}>{item.icon}</span>
+                    <span style={{ flexShrink: 0, opacity: isActive ? 1 : 0.85, display: 'flex' }}>{item.icon}</span>
                     {sidebarOpen && (
                       <>
                         <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.label}</span>
                         {item.badge && (
                           <span style={{
-                            fontSize: 8.5, padding: '1px 5px', borderRadius: 99,
-                            background: 'rgba(16,185,129,0.12)', color: '#10b981',
-                            fontWeight: 700, letterSpacing: '0.04em', border: '1px solid rgba(16,185,129,0.2)',
+                            fontSize: 8.5, padding: '1px 6px', borderRadius: 4,
+                            background: '#7BB7E8', color: '#0F1F3D',
+                            fontWeight: 700, letterSpacing: '0.04em',
                           }}>{item.badge}</span>
                         )}
                       </>
@@ -253,41 +254,47 @@ export default function AppShell({ user, children }: { user: AuthUser; children:
         {/* Developer Credit */}
         {sidebarOpen && (
           <div style={{
-            padding: '8px 14px 6px',
-            borderTop: '1px solid var(--border)',
+            padding: '10px 14px 8px',
+            borderTop: '1px solid rgba(255,255,255,0.08)',
             flexShrink: 0,
           }}>
-            <div style={{ fontSize: 9.5, color: 'var(--text-3)', letterSpacing: '0.02em' }}>
+            <div style={{ fontSize: 9.5, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.02em' }}>
               Designed & developed by
             </div>
-            <div style={{ fontSize: 10.5, fontWeight: 600, color: 'var(--accent)', letterSpacing: '0.01em' }}>
+            <div style={{ fontSize: 10.5, fontWeight: 600, color: '#7BB7E8', letterSpacing: '0.01em' }}>
               Nora Aldossari
             </div>
-            <div style={{ fontSize: 9, color: 'var(--text-3)', opacity: 0.7 }}>
+            <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)' }}>
               DGCC · PNU · 2026
             </div>
           </div>
         )}
 
         {/* Bottom */}
-        <div style={{ padding: '6px 6px 8px', borderTop: '1px solid var(--border)', flexShrink: 0 }}>
+        <div style={{ padding: '6px 8px 10px', borderTop: '1px solid rgba(255,255,255,0.08)', flexShrink: 0 }}>
           <button onClick={toggleTheme} title={theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
             style={{
-              display: 'flex', alignItems: 'center', gap: 9, padding: '6.5px 8px',
-              borderRadius: 5, background: 'transparent', border: 'none', cursor: 'pointer',
-              color: 'var(--text-3)', fontSize: 12.5, width: '100%', transition: 'all 0.1s',
+              display: 'flex', alignItems: 'center', gap: 10, padding: '7px 10px',
+              borderRadius: 6, background: 'transparent', border: 'none', cursor: 'pointer',
+              color: 'rgba(255,255,255,0.6)', fontSize: 12.5, width: '100%', transition: 'all 0.1s',
               justifyContent: sidebarOpen ? 'flex-start' : 'center',
-            }}>
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.06)'; (e.currentTarget as HTMLElement).style.color = '#ffffff'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.6)'; }}
+          >
             <span style={{ display: 'flex', flexShrink: 0 }}>{theme === 'dark' ? Icons.sun : Icons.moon}</span>
             {sidebarOpen && <span>{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>}
           </button>
           <button onClick={handleLogout} title={!sidebarOpen ? 'Sign Out' : undefined}
             style={{
-              display: 'flex', alignItems: 'center', gap: 9, padding: '6.5px 8px',
-              borderRadius: 5, background: 'transparent', border: 'none', cursor: 'pointer',
-              color: 'var(--text-3)', fontSize: 12.5, width: '100%', transition: 'all 0.1s',
+              display: 'flex', alignItems: 'center', gap: 10, padding: '7px 10px',
+              borderRadius: 6, background: 'transparent', border: 'none', cursor: 'pointer',
+              color: 'rgba(255,255,255,0.6)', fontSize: 12.5, width: '100%', transition: 'all 0.1s',
               justifyContent: sidebarOpen ? 'flex-start' : 'center',
-            }}>
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.06)'; (e.currentTarget as HTMLElement).style.color = '#ffffff'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.6)'; }}
+          >
             <span style={{ display: 'flex', flexShrink: 0 }}>{Icons.logout}</span>
             {sidebarOpen && <span>Sign Out</span>}
           </button>
@@ -302,9 +309,9 @@ export default function AppShell({ user, children }: { user: AuthUser; children:
       }}>
         {/* Topbar */}
         <header style={{
-          position: 'sticky', top: 0, zIndex: 40, height: 52,
+          position: 'sticky', top: 0, zIndex: 40, height: 56,
           background: 'var(--surface)', borderBottom: '1px solid var(--border)',
-          display: 'flex', alignItems: 'center', padding: '0 20px', gap: 12,
+          display: 'flex', alignItems: 'center', padding: '0 24px', gap: 12,
         }}>
           <Breadcrumb pathname={pathname} />
           <div style={{ flex: 1 }} />
@@ -312,10 +319,14 @@ export default function AppShell({ user, children }: { user: AuthUser; children:
           <Link href="/orders/new">
             <button style={{
               display: 'inline-flex', alignItems: 'center', gap: 6,
-              padding: '6px 14px', borderRadius: 6, fontSize: 12, fontWeight: 600,
+              padding: '8px 16px', borderRadius: 8, fontSize: 12.5, fontWeight: 500,
               background: 'var(--accent)', color: '#fff', border: 'none', cursor: 'pointer',
-              transition: 'all 0.15s',
-            }}>
+              transition: 'all 0.15s', letterSpacing: '0.01em',
+              boxShadow: '0 1px 2px rgba(27,58,107,0.2)',
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--accent-2)'; (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 12px rgba(27,58,107,0.25)'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'var(--accent)'; (e.currentTarget as HTMLElement).style.boxShadow = '0 1px 2px rgba(27,58,107,0.2)'; }}
+            >
               {Icons.plus} New Order
             </button>
           </Link>

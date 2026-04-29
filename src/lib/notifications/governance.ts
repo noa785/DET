@@ -3,22 +3,25 @@
 // Used when an Order is created/updated and requires governance review.
 
 import { prisma } from "@/lib/prisma/client";
-import { ROLE_PERMISSIONS, type Role } from "@/types";
 
 /**
- * Returns all roles that have governance:view OR governance:edit permission.
- * These are the users who should be notified when a new governance review
- * is requested.
+ * Roles that should be notified when an order needs governance review.
+ * Anyone with governance:view OR governance:edit permission.
+ * Listed explicitly to match Prisma enum values exactly.
  */
-function getGovernanceNotifiableRoles(): Role[] {
-  const roles: Role[] = [];
-  for (const [role, perms] of Object.entries(ROLE_PERMISSIONS)) {
-    if (perms.includes("governance:view") || perms.includes("governance:edit")) {
-      roles.push(role as Role);
-    }
-  }
-  return roles;
-}
+const GOVERNANCE_NOTIFIABLE_ROLES = [
+  "SUPER_ADMIN",
+  "ADMIN",
+  "GOVERNANCE_ADMIN",
+  "TECH_ADMIN",
+  "GOV_EDITOR",
+  "UNIT_MANAGER",
+  "PROJECT_OWNER",
+  "EDITOR",
+  "VIEWER",
+  "IMPORT_VIEWER",
+  "DATA_ANALYST",
+] as const;
 
 interface NotifyGovernanceArgs {
   orderId: string;
@@ -42,23 +45,26 @@ interface NotifyGovernanceArgs {
 export async function notifyGovernanceOfOrder(args: NotifyGovernanceArgs): Promise<number> {
   const { orderId, orderCode, orderName, triggeredByUserId, action = "created" } = args;
 
-  console.log(`[notifyGov] START — orderCode=${orderCode}, triggeredBy=${triggeredByUserId}, action=${action}`);
-
-  const eligibleRoles = getGovernanceNotifiableRoles();
-  console.log(`[notifyGov] eligible roles (${eligibleRoles.length}):`, eligibleRoles);
+  console.log(`[notifyGov] START orderCode=${orderCode} triggeredBy=${triggeredByUserId} action=${action}`);
 
   // Find all active users with eligible roles
-  const recipients = await prisma.user.findMany({
-    where: {
-      role: { in: eligibleRoles as any },
-      isActive: true,
-      ...(triggeredByUserId ? { id: { not: triggeredByUserId } } : {}),
-    },
-    select: { id: true, email: true, role: true },
-  });
+  let recipients: Array<{ id: string; email: string; role: string }> = [];
+  try {
+    recipients = await prisma.user.findMany({
+      where: {
+        role: { in: GOVERNANCE_NOTIFIABLE_ROLES as any },
+        isActive: true,
+        ...(triggeredByUserId ? { id: { not: triggeredByUserId } } : {}),
+      },
+      select: { id: true, email: true, role: true },
+    });
+  } catch (err) {
+    console.error('[notifyGov] findMany users FAILED:', err);
+    throw err;
+  }
 
   console.log(`[notifyGov] found ${recipients.length} recipients:`,
-    recipients.map((r: any) => `${r.email}(${r.role})`).join(', '));
+    recipients.map((r) => `${r.email}(${r.role})`).join(', '));
 
   if (recipients.length === 0) {
     console.warn('[notifyGov] No recipients — nothing to do');
@@ -75,25 +81,30 @@ export async function notifyGovernanceOfOrder(args: NotifyGovernanceArgs): Promi
       ? `Order "${orderName}" was created and is marked for governance review. Please review and add the relevant policy.`
       : `Order "${orderName}" has been flagged for governance review. Please review and add the relevant policy.`;
 
-  // Create one notification per recipient (so unread counts work per-user)
-  try {
-    const result = await prisma.notification.createMany({
-      data: recipients.map((u: { id: string }) => ({
-        type: "GOV_REVIEW_REQUESTED",
-        title,
-        message,
-        severity: "info",
-        entityType: "order",
-        entityId: orderId,
-        entityCode: orderCode,
-        userId: u.id,
-      })),
-    });
-
-    console.log(`[notifyGov] SUCCESS — created ${result.count} notifications`);
-    return result.count;
-  } catch (err) {
-    console.error('[notifyGov] createMany FAILED:', err);
-    throw err;
+  // Create notifications one by one — same proven pattern as rules-engine.ts
+  // (avoids createMany / $transaction issues on Supabase serverless)
+  let createdCount = 0;
+  for (const recipient of recipients) {
+    try {
+      await prisma.notification.create({
+        data: {
+          type: "GOV_REVIEW_REQUESTED",
+          title,
+          message,
+          severity: "info",
+          entityType: "order",
+          entityId: orderId,
+          entityCode: orderCode,
+          userId: recipient.id,
+        },
+      });
+      createdCount++;
+    } catch (err) {
+      console.error(`[notifyGov] create failed for ${recipient.email}:`, err);
+      // Keep going — one bad recipient shouldn't block others
+    }
   }
+
+  console.log(`[notifyGov] SUCCESS — created ${createdCount}/${recipients.length} notifications`);
+  return createdCount;
 }

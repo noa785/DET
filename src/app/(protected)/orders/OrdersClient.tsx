@@ -43,6 +43,61 @@ export default function OrdersClient({ orders, total, page, pageSize, units, pro
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [govFilter, setGovFilter] = useState<'' | 'yes' | 'no'>('');
+  const [bulkStatus, setBulkStatus] = useState<OrderStatus | ''>('');
+  const [bulkLoading, setBulkLoading] = useState(false);
+
+  // ── Bulk Apply (Change Status) ──────────────────────────────
+  async function handleBulkApply() {
+    if (!bulkStatus || selected.size === 0) {
+      alert('Please select a status first.');
+      return;
+    }
+    if (!confirm(`Change status of ${selected.size} order(s) to "${bulkStatus.replace(/_/g, ' ')}"?`)) return;
+
+    setBulkLoading(true);
+    try {
+      const updates = Array.from(selected).map(id => ({ id, status: bulkStatus }));
+      const res = await fetch('/api/orders/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ updates }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Update failed');
+      alert(`✓ Updated ${data.updated || selected.size} order(s) successfully.`);
+      setSelected(new Set());
+      setBulkStatus('');
+      router.refresh();
+    } catch (err: any) {
+      alert(`Error: ${err.message}`);
+    } finally {
+      setBulkLoading(false);
+    }
+  }
+
+  // ── Bulk Delete ─────────────────────────────────────────────
+  async function handleBulkDelete() {
+    if (selected.size === 0) return;
+    if (!confirm(`⚠️ Delete ${selected.size} order(s)? This action cannot be undone.`)) return;
+
+    setBulkLoading(true);
+    try {
+      const res = await fetch('/api/orders/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deletes: Array.from(selected) }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Delete failed');
+      alert(`✓ Deleted ${data.deleted || selected.size} order(s) successfully.`);
+      setSelected(new Set());
+      router.refresh();
+    } catch (err: any) {
+      alert(`Error: ${err.message}`);
+    } finally {
+      setBulkLoading(false);
+    }
+  }
 
   const visible = useMemo(() => {
     let rows = [...orders];
@@ -229,15 +284,33 @@ export default function OrdersClient({ orders, total, page, pageSize, units, pro
       {selected.size > 0 && (
         <div className="pes-card" style={{ padding: '8px 16px', display: 'flex', alignItems: 'center', gap: 12, borderColor: 'rgba(var(--accent-rgb),0.3)', background: 'rgba(var(--accent-rgb),0.04)' }}>
           <span style={{ fontSize: 12.5, color: 'var(--accent)', fontWeight: 600 }}>{selected.size} selected</span>
-          <select className="pes-input" style={{ width: 150, paddingTop: 5, paddingBottom: 5, fontSize: 12 }}>
-            <option>Change Status…</option>
+          <select
+            className="pes-input"
+            style={{ width: 150, paddingTop: 5, paddingBottom: 5, fontSize: 12 }}
+            value={bulkStatus}
+            onChange={(e) => setBulkStatus(e.target.value as OrderStatus | '')}
+            disabled={bulkLoading}
+          >
+            <option value="">Change Status…</option>
             {(['NOT_STARTED','IN_PROGRESS','DONE','CANCELLED'] as OrderStatus[]).map(s => (
               <option key={s} value={s}>{s.replace(/_/g,' ')}</option>
             ))}
           </select>
-          <button className="pes-btn pes-btn-ghost" style={{ fontSize: 11, padding: '4px 10px' }}>Apply</button>
-          <button className="pes-btn" style={{ fontSize: 11, padding: '4px 10px', color: 'var(--red)', background: 'transparent', border: '1px solid var(--border-2)' }}>
-            Delete
+          <button
+            className="pes-btn pes-btn-ghost"
+            style={{ fontSize: 11, padding: '4px 10px', opacity: bulkStatus && !bulkLoading ? 1 : 0.5, cursor: bulkStatus && !bulkLoading ? 'pointer' : 'not-allowed' }}
+            onClick={handleBulkApply}
+            disabled={!bulkStatus || bulkLoading}
+          >
+            {bulkLoading ? '...' : 'Apply'}
+          </button>
+          <button
+            className="pes-btn"
+            style={{ fontSize: 11, padding: '4px 10px', color: 'var(--red)', background: 'transparent', border: '1px solid var(--border-2)', cursor: bulkLoading ? 'not-allowed' : 'pointer', opacity: bulkLoading ? 0.5 : 1 }}
+            onClick={handleBulkDelete}
+            disabled={bulkLoading}
+          >
+            {bulkLoading ? '...' : 'Delete'}
           </button>
           <button onClick={() => setSelected(new Set())} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer', fontSize: 12 }}>✕</button>
         </div>

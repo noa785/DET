@@ -181,11 +181,7 @@ export default function OrdersClient({ orders, total, page, pageSize, units, pro
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          {selected.size > 0 && (
-            <button className="pes-btn pes-btn-ghost" style={{ fontSize: 12 }}>
-              Bulk Edit ({selected.size})
-            </button>
-          )}
+    
           <Link href="/orders/grid">
             <button className="pes-btn pes-btn-ghost" style={{ fontSize: 12 }}>⊞ Grid Editor</button>
           </Link>

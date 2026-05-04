@@ -43,7 +43,7 @@ interface OrderDetail {
   govItems: { id: string; govCode: string; title: string; type: string; status: string; priority: string }[];
 }
 
-type Tab = 'overview' | 'update-log' | 'governance' | 'attachments';
+type Tab = 'overview' | 'description' | 'update-log' | 'governance' | 'attachments';
 
 // ── Main ───────────────────────────────────────────────────────
 export default function OrderDetailClient({
@@ -56,6 +56,7 @@ export default function OrderDetailClient({
 
   const tabs: { id: Tab; label: string; count?: number }[] = [
     { id: 'overview',    label: 'Overview' },
+    { id: 'description', label: '📝 Description' },
     { id: 'update-log',  label: 'Update Log',  count: order.updateLogs.length },
     { id: 'governance',  label: 'Governance',  count: order.govItems.length },
     { id: 'attachments', label: 'Attachments' },
@@ -151,6 +152,7 @@ export default function OrderDetailClient({
       {/* Tab content */}
       <div>
         {tab === 'overview'    && <OverviewTab order={order} />}
+        {tab === 'description' && <DescriptionTab order={order} canEdit={canEdit} />}
         {tab === 'update-log'  && <UpdateLogTab order={order} canEdit={canEdit} />}
         {tab === 'governance'  && <GovernanceTab order={order} />}
         {tab === 'attachments' && <AttachmentsTab orderId={order.id} canEdit={canEdit} />}

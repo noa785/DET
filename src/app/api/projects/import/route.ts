@@ -36,6 +36,9 @@ const ALIASES: Record<string, string> = {
   'description': 'description', 'notes':        'description',
 };
 
+// Allow up to 60 seconds for large imports
+export const maxDuration = 60;
+
 export async function POST(req: NextRequest) {
   // Only admins can create/update projects
   const user = await requirePermission('admin:settings');
@@ -134,32 +137,29 @@ export async function POST(req: NextRequest) {
     validRows.push({ ...d, _unitId: unitId });
   }
 
-  // Upsert (overwrite existing by code)
-  let imported = 0;
-  let updated  = 0;
+  // ── Upsert (BATCHED) ─────────────────────────────────────────
+  let imported = 0;  // newly created
+  let updated  = 0;  // overwritten
   const insertErrors: string[] = [];
 
-  for (const row of validRows) {
+  if (validRows.length > 0) {
     try {
-      const existing = await prisma.project.findUnique({ where: { code: row.code } });
+      // 1. Fetch existing codes in ONE query
+      const codes = validRows.map(r => r.code);
+      const existing = await prisma.project.findMany({
+        where: { code: { in: codes } },
+        select: { code: true },
+      });
+      const existingSet = new Set(existing.map(p => p.code));
 
-      if (existing) {
-        await prisma.project.update({
-          where: { code: row.code },
-          data: {
-            name:        row.name,
-            unitId:      row._unitId ?? null,
-            phase:       row.phase,
-            startDate:   row.startDate ? new Date(row.startDate) : null,
-            endDate:     row.endDate   ? new Date(row.endDate)   : null,
-            sponsor:     row.sponsor     ?? null,
-            description: row.description ?? null,
-          },
-        });
-        updated++;
-      } else {
-        await prisma.project.create({
-          data: {
+      // 2. Split into create-batch and update-list
+      const toCreate = validRows.filter(r => !existingSet.has(r.code));
+      const toUpdate = validRows.filter(r =>  existingSet.has(r.code));
+
+      // 3. Bulk-create the new ones in ONE query
+      if (toCreate.length > 0) {
+        const result = await prisma.project.createMany({
+          data: toCreate.map(row => ({
             code:        row.code,
             name:        row.name,
             unitId:      row._unitId ?? null,
@@ -169,12 +169,34 @@ export async function POST(req: NextRequest) {
             sponsor:     row.sponsor     ?? null,
             description: row.description ?? null,
             createdById: user.id,
-          },
+          })),
+          skipDuplicates: true,
         });
-        imported++;
+        imported = result.count;
+      }
+
+      // 4. Update existing ones (rare path, small loop)
+      for (const row of toUpdate) {
+        try {
+          await prisma.project.update({
+            where: { code: row.code },
+            data: {
+              name:        row.name,
+              unitId:      row._unitId ?? null,
+              phase:       row.phase,
+              startDate:   row.startDate ? new Date(row.startDate) : null,
+              endDate:     row.endDate   ? new Date(row.endDate)   : null,
+              sponsor:     row.sponsor     ?? null,
+              description: row.description ?? null,
+            },
+          });
+          updated++;
+        } catch (e: any) {
+          insertErrors.push(`Update "${row.code}" failed: ${e.message}`);
+        }
       }
     } catch (e: any) {
-      insertErrors.push(`Row code "${row.code}": ${e.message}`);
+      insertErrors.push(`Batch upsert failed: ${e.message}`);
     }
   }
 

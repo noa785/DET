@@ -45,6 +45,9 @@ const ALIASES: Record<string, string> = {
   'risks':            'risks',
 };
 
+// Allow up to 60 seconds for large imports
+export const maxDuration = 60;
+
 export async function POST(req: NextRequest) {
   const user = await requirePermission('orders:edit');
   if (isErrorResponse(user)) return user;
@@ -110,89 +113,153 @@ export async function POST(req: NextRequest) {
     validRows.push({ rowNum, data: parsed.data });
   }
 
-  // Process upserts
-  let imported = 0;   // newly created descriptions
-  let updated  = 0;   // existing descriptions overwritten
+  // ── Pre-fetch ALL order matches in 2 queries (not 2N queries) ──
+  let imported = 0;
+  let updated  = 0;
   const insertErrors: string[] = [];
 
+  // Build the lookup keys
+  const orderCodes = validRows
+    .map(v => v.data.orderCode?.trim())
+    .filter((c): c is string => !!c);
+  const legacyIds = validRows
+    .map(v => v.data.legacyOrderId?.trim())
+    .filter((c): c is string => !!c);
+
+  // ONE query for all explicit orderCodes
+  const ordersByCode = orderCodes.length > 0
+    ? await prisma.order.findMany({
+        where: { orderCode: { in: orderCodes }, isDeleted: false },
+        select: { id: true, orderCode: true, notes: true },
+      })
+    : [];
+  const codeToId = new Map(ordersByCode.map(o => [o.orderCode, o.id]));
+  const codeToOrderCode = new Map(ordersByCode.map(o => [o.orderCode, o.orderCode]));
+
+  // ONE query for all orders that might match legacy IDs (fetch the small
+  // subset of orders that have any legacy id in their notes; then map in JS)
+  const ordersWithLegacy = legacyIds.length > 0
+    ? await prisma.order.findMany({
+        where: {
+          isDeleted: false,
+          notes: { contains: 'Legacy ID:' },
+        },
+        select: { id: true, orderCode: true, notes: true },
+      })
+    : [];
+
+  // Build legacyId -> [orderId, orderCode] map (in JS, instant)
+  const legacyToOrders = new Map<string, { id: string; orderCode: string }[]>();
+  for (const o of ordersWithLegacy) {
+    if (!o.notes) continue;
+    const match = o.notes.match(/Legacy ID:\s*([^\s|]+)/);
+    if (!match) continue;
+    const lid = match[1];
+    const arr = legacyToOrders.get(lid) ?? [];
+    arr.push({ id: o.id, orderCode: o.orderCode });
+    legacyToOrders.set(lid, arr);
+  }
+
+  // Resolve every row to an orderId
+  type Resolved = {
+    rowNum: number;
+    orderId: string;
+    orderCodeFound: string;
+    data: ImportRow;
+  };
+  const resolved: Resolved[] = [];
+
   for (const { rowNum, data: row } of validRows) {
-    try {
-      // Find the order
-      let orderId: string | null = null;
-      let orderCodeFound: string | null = null;
+    let orderId: string | null = null;
+    let orderCodeFound: string | null = null;
 
-      if (row.orderCode && row.orderCode.trim()) {
-        const o = await prisma.order.findUnique({
-          where: { orderCode: row.orderCode.trim() },
-          select: { id: true, orderCode: true, isDeleted: true },
-        });
-        if (o && !o.isDeleted) {
-          orderId = o.id;
-          orderCodeFound = o.orderCode;
-        }
+    if (row.orderCode && row.orderCode.trim()) {
+      const id = codeToId.get(row.orderCode.trim());
+      if (id) {
+        orderId = id;
+        orderCodeFound = codeToOrderCode.get(row.orderCode.trim()) ?? null;
       }
+    }
 
-      if (!orderId && row.legacyOrderId && row.legacyOrderId.trim()) {
-        // Match against `notes` containing "Legacy ID: <id>"
-        const legacy = row.legacyOrderId.trim();
-        const candidates = await prisma.order.findMany({
-          where: {
-            isDeleted: false,
-            notes: { contains: `Legacy ID: ${legacy}` },
-          },
-          select: { id: true, orderCode: true },
-          take: 2,
-        });
-        if (candidates.length === 1) {
-          orderId = candidates[0].id;
-          orderCodeFound = candidates[0].orderCode;
-        } else if (candidates.length > 1) {
-          insertErrors.push(`Row ${rowNum}: legacyOrderId "${legacy}" matched ${candidates.length} orders — skipped`);
-          continue;
-        }
-      }
-
-      if (!orderId) {
-        const ref = row.orderCode || row.legacyOrderId || '(none)';
-        insertErrors.push(`Row ${rowNum}: order not found for "${ref}"`);
+    if (!orderId && row.legacyOrderId && row.legacyOrderId.trim()) {
+      const legacy = row.legacyOrderId.trim();
+      const matches = legacyToOrders.get(legacy) ?? [];
+      if (matches.length === 1) {
+        orderId = matches[0].id;
+        orderCodeFound = matches[0].orderCode;
+      } else if (matches.length > 1) {
+        insertErrors.push(`Row ${rowNum}: legacyOrderId "${legacy}" matched ${matches.length} orders — skipped`);
         continue;
       }
+    }
 
-      // Upsert the description
-      const existing = await prisma.orderDescription.findUnique({ where: { orderId } });
+    if (!orderId) {
+      const ref = row.orderCode || row.legacyOrderId || '(none)';
+      insertErrors.push(`Row ${rowNum}: order not found for "${ref}"`);
+      continue;
+    }
 
-      const descData = {
-        objective:         row.objective         ?? null,
-        scope:             row.scope             ?? null,
-        rationale:         row.rationale         ?? null,
-        governanceImpact:  row.governanceImpact  ?? null,
-        affectedUnit:      row.affectedUnit      ?? null,
-        relatedPolicies:   row.relatedPolicies   ?? null,
-        requiredEvidence:  row.requiredEvidence  ?? null,
-        risks:             row.risks             ?? null,
-        lastEditedById:    user.id,
-      };
+    resolved.push({ rowNum, orderId, orderCodeFound: orderCodeFound ?? '', data: row });
+  }
 
-      if (existing) {
-        await prisma.orderDescription.update({ where: { orderId }, data: descData });
-        updated++;
-      } else {
-        await prisma.orderDescription.create({ data: { orderId, ...descData } });
-        imported++;
+  if (resolved.length > 0) {
+    try {
+      // ONE query: which orderIds already have a description?
+      const orderIds = resolved.map(r => r.orderId);
+      const existingDescs = await prisma.orderDescription.findMany({
+        where: { orderId: { in: orderIds } },
+        select: { orderId: true },
+      });
+      const hasDescSet = new Set(existingDescs.map(d => d.orderId));
+
+      // Split: new vs existing
+      const toCreate = resolved.filter(r => !hasDescSet.has(r.orderId));
+      const toUpdate = resolved.filter(r =>  hasDescSet.has(r.orderId));
+
+      // Bulk-create the new descriptions in ONE query
+      if (toCreate.length > 0) {
+        const result = await prisma.orderDescription.createMany({
+          data: toCreate.map(r => ({
+            orderId:           r.orderId,
+            objective:         r.data.objective         ?? null,
+            scope:             r.data.scope             ?? null,
+            rationale:         r.data.rationale         ?? null,
+            governanceImpact:  r.data.governanceImpact  ?? null,
+            affectedUnit:      r.data.affectedUnit      ?? null,
+            relatedPolicies:   r.data.relatedPolicies   ?? null,
+            requiredEvidence:  r.data.requiredEvidence  ?? null,
+            risks:             r.data.risks             ?? null,
+            lastEditedById:    user.id,
+          })),
+          skipDuplicates: true,
+        });
+        imported = result.count;
       }
 
-      // Audit per record (lightweight)
-      await audit({
-        action:   'UPDATE',
-        module:   'order_descriptions',
-        user,
-        recordId: orderId,
-        recordCode: orderCodeFound ?? undefined,
-        notes:    `Description bulk-upserted from import`,
-        orderId,
-      }).catch(() => {});
+      // Update existing ones (small loop — typically empty on first import)
+      for (const r of toUpdate) {
+        try {
+          await prisma.orderDescription.update({
+            where: { orderId: r.orderId },
+            data: {
+              objective:         r.data.objective         ?? null,
+              scope:             r.data.scope             ?? null,
+              rationale:         r.data.rationale         ?? null,
+              governanceImpact:  r.data.governanceImpact  ?? null,
+              affectedUnit:      r.data.affectedUnit      ?? null,
+              relatedPolicies:   r.data.relatedPolicies   ?? null,
+              requiredEvidence:  r.data.requiredEvidence  ?? null,
+              risks:             r.data.risks             ?? null,
+              lastEditedById:    user.id,
+            },
+          });
+          updated++;
+        } catch (e: any) {
+          insertErrors.push(`Row ${r.rowNum}: update failed — ${e.message}`);
+        }
+      }
     } catch (e: any) {
-      insertErrors.push(`Row ${rowNum}: ${e.message}`);
+      insertErrors.push(`Batch upsert failed: ${e.message}`);
     }
   }
 

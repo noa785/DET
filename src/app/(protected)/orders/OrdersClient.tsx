@@ -362,29 +362,59 @@ export default function OrdersClient({ orders, total, page, pageSize, units, pro
         {/* Pagination */}
         {totalPages > 1 && (
           <div style={{
-            padding: '10px 20px',
+            padding: '12px 20px',
             borderTop: '1px solid var(--border)',
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            flexWrap: 'wrap', gap: 12,
           }}>
             <span style={{ fontSize: 12, color: 'var(--text-3)' }}>
-              Page {page} of {totalPages} &mdash; {total} records
+              Page {page} of {totalPages} &mdash; {total} records ({pageSize} per page)
             </span>
-            <div style={{ display: 'flex', gap: 4 }}>
-              {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => i + 1).map(p => (
+            <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+              <button
+                onClick={() => setURLParam('page', String(Math.max(1, page - 1)))}
+                disabled={page <= 1}
+                style={{
+                  padding: '6px 12px', borderRadius: 6, fontSize: 12,
+                  cursor: page <= 1 ? 'not-allowed' : 'pointer',
+                  border: '1px solid var(--border)',
+                  background: 'transparent',
+                  color: page <= 1 ? 'var(--text-3)' : 'var(--text-2)',
+                  opacity: page <= 1 ? 0.5 : 1,
+                }}
+              >
+                ‹ Prev
+              </button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
                 <button
                   key={p}
                   onClick={() => setURLParam('page', String(p))}
                   style={{
-                    width: 28, height: 28, borderRadius: 6, fontSize: 12, cursor: 'pointer',
+                    minWidth: 32, height: 28, padding: '0 8px', borderRadius: 6, fontSize: 12, cursor: 'pointer',
                     border: p === page ? 'none' : '1px solid var(--border)',
                     background: p === page ? 'var(--accent)' : 'transparent',
                     color: p === page ? '#fff' : 'var(--text-2)',
+                    fontWeight: p === page ? 600 : 400,
                     transition: 'all 0.1s',
                   }}
                 >
                   {p}
                 </button>
               ))}
+              <button
+                onClick={() => setURLParam('page', String(Math.min(totalPages, page + 1)))}
+                disabled={page >= totalPages}
+                style={{
+                  padding: '6px 12px', borderRadius: 6, fontSize: 12,
+                  cursor: page >= totalPages ? 'not-allowed' : 'pointer',
+                  border: '1px solid var(--border)',
+                  background: 'transparent',
+                  color: page >= totalPages ? 'var(--text-3)' : 'var(--text-2)',
+                  opacity: page >= totalPages ? 0.5 : 1,
+                }}
+              >
+                Next ›
+              </button>
             </div>
           </div>
         )}

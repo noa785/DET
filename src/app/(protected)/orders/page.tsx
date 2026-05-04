@@ -15,7 +15,7 @@ export default async function OrdersPage({
   const user = await requireAuth();
 
   const page     = parseInt(searchParams.page ?? '1');
-  const pageSize = 20;
+  const pageSize = 50;
 
   // Build where clause
   const where: any = { isDeleted: false };
@@ -31,7 +31,7 @@ export default async function OrdersPage({
         project: { select: { code: true, name: true } },
         owner:   { select: { id: true, name: true } },
       },
-      orderBy: { updatedAt: 'desc' },
+      orderBy: { orderCode: 'desc' },
       skip:  (page - 1) * pageSize,
       take:  pageSize,
     }),

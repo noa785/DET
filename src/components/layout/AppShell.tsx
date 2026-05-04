@@ -60,7 +60,7 @@ const NAV = [
   {
     group: 'Reports',
     items: [
-      { href: '/weekly-briefs', icon: Icons.briefs,  label: 'Order Descriptions' },
+      { href: '/order-descriptions', icon: Icons.briefs,  label: 'Order Descriptions' },
       { href: '/audit-log',     icon: Icons.audit,   label: 'Audit Log', perm: 'audit:view' as const },
       { href: '/reports',       icon: Icons.reports, label: 'Reports Center' },
     ],
@@ -350,7 +350,7 @@ function Breadcrumb({ pathname }: { pathname: string }) {
     '/orders/new': 'New Order', '/upcoming-orders': 'Upcoming Orders', '/projects': 'Projects',
     '/governance/review': 'Gov. Review Dashboard', '/governance/new': 'New Governance Item',
     '/gov-tasks': 'Governance Tasks', '/gov-tasks/new': 'New Gov. Task',
-    '/weekly-briefs': 'Order Descriptions', '/audit-log': 'Audit Log',
+    '/order-descriptions': 'Order Descriptions', '/audit-log': 'Audit Log',
     '/units': 'Units', '/admin/users': 'Users & Roles',
     '/import-export': 'Import / Export', '/reports': 'Reports Center',
   };

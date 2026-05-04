@@ -1,0 +1,247 @@
+// src/app/(protected)/order-descriptions/OrderDescriptionsClient.tsx
+'use client';
+
+import { useState, useMemo } from 'react';
+import Link from 'next/link';
+
+interface Description {
+  objective:        string | null;
+  scope:            string | null;
+  rationale:        string | null;
+  governanceImpact: string | null;
+  affectedUnit:     string | null;
+  relatedPolicies:  string | null;
+  requiredEvidence: string | null;
+  risks:            string | null;
+  updatedAt:        string;
+}
+
+interface Row {
+  id:           string;
+  orderCode:    string;
+  name:         string;
+  status:       string;
+  unitCode:     string | null;
+  unitName:     string | null;
+  unitColor:    string | null;
+  projectCode:  string | null;
+  projectName:  string | null;
+  description:  Description | null;
+}
+
+interface Props {
+  rows:  Row[];
+  units: { code: string; name: string }[];
+}
+
+export default function OrderDescriptionsClient({ rows, units }: Props) {
+  const [search, setSearch]     = useState('');
+  const [unitFilter, setUnit]   = useState<string>('');
+  const [showOnlyFilled, setShowOnlyFilled] = useState(false);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  function toggle(id: string) {
+    setExpanded(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  // Apply filters
+  const filtered = useMemo(() => {
+    return rows.filter(r => {
+      if (showOnlyFilled && !hasContent(r.description)) return false;
+      if (unitFilter && r.unitCode !== unitFilter) return false;
+      if (search) {
+        const q = search.toLowerCase();
+        const haystack = [
+          r.orderCode, r.name, r.unitCode ?? '', r.projectCode ?? '',
+          r.description?.objective ?? '',
+          r.description?.scope ?? '',
+          r.description?.rationale ?? '',
+          r.description?.risks ?? '',
+        ].join(' ').toLowerCase();
+        if (!haystack.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [rows, search, unitFilter, showOnlyFilled]);
+
+  const filledCount = rows.filter(r => hasContent(r.description)).length;
+
+  function exportCSV() {
+    const headers = [
+      'orderCode', 'name', 'status', 'unitCode', 'projectCode',
+      'objective', 'scope', 'rationale', 'governanceImpact',
+      'affectedUnit', 'relatedPolicies', 'requiredEvidence', 'risks',
+      'lastEdited',
+    ];
+    const escape = (v: any) => {
+      if (v == null) return '';
+      const s = String(v).replace(/"/g, '""');
+      return `"${s}"`;
+    };
+    const lines = [headers.join(',')];
+    for (const r of filtered) {
+      const d = r.description;
+      lines.push([
+        r.orderCode, r.name, r.status, r.unitCode ?? '', r.projectCode ?? '',
+        d?.objective ?? '', d?.scope ?? '', d?.rationale ?? '', d?.governanceImpact ?? '',
+        d?.affectedUnit ?? '', d?.relatedPolicies ?? '', d?.requiredEvidence ?? '', d?.risks ?? '',
+        d?.updatedAt ?? '',
+      ].map(escape).join(','));
+    }
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const today = new Date().toISOString().slice(0, 10);
+    a.href = url;
+    a.download = `DET-Order-Descriptions-${today}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  return (
+    <div className="space-y-5 max-w-7xl">
+      <div className="flex items-end justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="font-display font-bold text-2xl text-[var(--text)]">📝 Order Descriptions</h1>
+          <p className="text-[12.5px] text-[var(--text-3)] mt-1">
+            {rows.length} total · {filledCount} with content · {filtered.length} shown
+          </p>
+        </div>
+        <button onClick={exportCSV} className="pes-btn-ghost text-[12.5px]">
+          ⬇ Export CSV ({filtered.length})
+        </button>
+      </div>
+
+      {/* Filters */}
+      <div className="pes-card p-4 flex flex-wrap gap-3 items-center">
+        <input
+          type="text"
+          placeholder="🔍 Search by code, name, content…"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          className="pes-input flex-1 min-w-[220px]"
+        />
+        <select value={unitFilter} onChange={e => setUnit(e.target.value)} className="pes-input min-w-[180px]">
+          <option value="">All Units</option>
+          {units.map(u => (
+            <option key={u.code} value={u.code}>{u.code} — {u.name}</option>
+          ))}
+        </select>
+        <label className="flex items-center gap-2 text-[12.5px] text-[var(--text-2)] cursor-pointer">
+          <input
+            type="checkbox"
+            checked={showOnlyFilled}
+            onChange={e => setShowOnlyFilled(e.target.checked)}
+            className="cursor-pointer"
+          />
+          Only with content
+        </label>
+      </div>
+
+      {/* List */}
+      {filtered.length === 0 ? (
+        <div className="pes-card p-8 text-center text-[var(--text-3)] text-[13px]">
+          No orders match these filters.
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {filtered.map(r => {
+            const isOpen = expanded.has(r.id);
+            const filled = hasContent(r.description);
+            return (
+              <div key={r.id} className="pes-card overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => toggle(r.id)}
+                  className="w-full flex items-center gap-3 p-3 hover:bg-[var(--surface-2)] transition-colors text-left"
+                >
+                  <span className="text-[var(--text-3)] text-xs">{isOpen ? '▼' : '▶'}</span>
+                  <span className="font-display font-bold text-[12px] text-blue-400 min-w-[80px]">
+                    {r.orderCode}
+                  </span>
+                  {r.unitCode && (
+                    <span
+                      className="text-[10.5px] font-bold px-1.5 py-0.5 rounded"
+                      style={{
+                        borderLeft: `2px solid ${r.unitColor ?? '#3b82f6'}`,
+                        background: `${r.unitColor ?? '#3b82f6'}18`,
+                        color: r.unitColor ?? '#3b82f6',
+                      }}
+                    >
+                      {r.unitCode}
+                    </span>
+                  )}
+                  <span className="flex-1 text-[13.5px] text-[var(--text)] truncate">{r.name}</span>
+                  {!filled && (
+                    <span className="text-[10.5px] text-[var(--text-3)] bg-[var(--surface-3)] px-2 py-0.5 rounded">
+                      No description
+                    </span>
+                  )}
+                  {filled && (
+                    <span className="text-[10.5px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded">
+                      ✓ Filled
+                    </span>
+                  )}
+                </button>
+
+                {isOpen && (
+                  <div className="border-t border-[var(--border)] p-4 bg-[var(--surface)]/40 space-y-3">
+                    {!filled ? (
+                      <div className="text-center py-4">
+                        <p className="text-[12.5px] text-[var(--text-3)] mb-2">No description added yet.</p>
+                        <Link href={`/orders/${r.id}/edit?tab=description`}>
+                          <button className="pes-btn-primary text-xs">+ Add Description</button>
+                        </Link>
+                      </div>
+                    ) : (
+                      <>
+                        <Field label="🎯 Objective"        value={r.description?.objective} />
+                        <Field label="🗺 Scope"             value={r.description?.scope} />
+                        <Field label="💡 Rationale"         value={r.description?.rationale} />
+                        <Field label="🛡 Governance Impact" value={r.description?.governanceImpact} />
+                        <Field label="🏢 Affected Unit"     value={r.description?.affectedUnit} />
+                        <Field label="📄 Related Policies"  value={r.description?.relatedPolicies} />
+                        <Field label="📎 Required Evidence" value={r.description?.requiredEvidence} />
+                        <Field label="⚠ Risks / Flags"      value={r.description?.risks} />
+                        <div className="flex items-center justify-between pt-2 border-t border-[var(--border)]/50">
+                          <span className="text-[11px] text-[var(--text-3)]">
+                            Last edited: {r.description ? new Date(r.description.updatedAt).toLocaleDateString('en-GB') : '—'}
+                          </span>
+                          <Link href={`/orders/${r.id}`}>
+                            <button className="pes-btn-ghost text-xs">→ Open Order</button>
+                          </Link>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Field({ label, value }: { label: string; value: string | null | undefined }) {
+  if (!value) return null;
+  return (
+    <div>
+      <div className="text-[10.5px] font-bold uppercase tracking-wider text-[var(--text-3)] mb-1">{label}</div>
+      <p className="text-[12.5px] text-[var(--text)] leading-relaxed whitespace-pre-wrap">{value}</p>
+    </div>
+  );
+}
+
+function hasContent(d: Description | null): boolean {
+  if (!d) return false;
+  return !!(d.objective || d.scope || d.rationale || d.governanceImpact || d.affectedUnit || d.relatedPolicies || d.requiredEvidence || d.risks);
+}

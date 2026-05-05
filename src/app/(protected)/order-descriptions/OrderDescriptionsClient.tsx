@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
 interface Description {
@@ -34,19 +35,97 @@ interface Props {
   units: { code: string; name: string }[];
 }
 
+const FIELDS: { key: keyof Description; label: string }[] = [
+  { key: 'objective',        label: '🎯 Objective' },
+  { key: 'scope',            label: '🗺 Scope' },
+  { key: 'rationale',        label: '💡 Rationale' },
+  { key: 'governanceImpact', label: '🛡 Governance Impact' },
+  { key: 'affectedUnit',     label: '🏢 Affected Unit' },
+  { key: 'relatedPolicies',  label: '📄 Related Policies' },
+  { key: 'requiredEvidence', label: '📎 Required Evidence' },
+  { key: 'risks',            label: '⚠ Risks / Flags' },
+];
+
 export default function OrderDescriptionsClient({ rows, units }: Props) {
+  const router = useRouter();
+
   const [search, setSearch]     = useState('');
   const [unitFilter, setUnit]   = useState<string>('');
   const [showOnlyFilled, setShowOnlyFilled] = useState(false);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
+  // Inline edit state
+  const [editingId, setEditingId]   = useState<string | null>(null);
+  const [editForm,  setEditForm]    = useState<Record<string, string>>({});
+  const [saving,    setSaving]      = useState(false);
+  const [saveError, setSaveError]   = useState<string | null>(null);
+  const [savedFlash, setSavedFlash] = useState<string | null>(null);
+
   function toggle(id: string) {
+    if (editingId === id) return; // don't collapse while editing
     setExpanded(prev => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
     });
+  }
+
+  function startEdit(row: Row) {
+    setEditingId(row.id);
+    setSaveError(null);
+    setEditForm({
+      objective:        row.description?.objective        ?? '',
+      scope:            row.description?.scope            ?? '',
+      rationale:        row.description?.rationale        ?? '',
+      governanceImpact: row.description?.governanceImpact ?? '',
+      affectedUnit:     row.description?.affectedUnit     ?? row.unitCode ?? '',
+      relatedPolicies:  row.description?.relatedPolicies  ?? '',
+      requiredEvidence: row.description?.requiredEvidence ?? '',
+      risks:            row.description?.risks            ?? '',
+    });
+    setExpanded(prev => new Set(prev).add(row.id));
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setEditForm({});
+    setSaveError(null);
+  }
+
+  async function saveEdit(orderId: string) {
+    setSaving(true);
+    setSaveError(null);
+    try {
+      // Convert empty strings to null so DB stores them as null (cleaner)
+      const payload: Record<string, string | null> = {};
+      for (const k of Object.keys(editForm)) {
+        const v = editForm[k]?.trim() ?? '';
+        payload[k] = v === '' ? null : v;
+      }
+
+      const res = await fetch(`/api/orders/${orderId}/description`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j.error ?? `Save failed (HTTP ${res.status})`);
+      }
+
+      // Success — flash green check, close edit mode, refresh server data
+      setEditingId(null);
+      setEditForm({});
+      setSavedFlash(orderId);
+      setTimeout(() => setSavedFlash(null), 2000);
+      router.refresh(); // re-fetch server-side data to show new content
+    } catch (err: any) {
+      setSaveError(err?.message ?? 'Save failed');
+    } finally {
+      setSaving(false);
+    }
   }
 
   // Apply filters
@@ -153,8 +232,11 @@ export default function OrderDescriptionsClient({ rows, units }: Props) {
       ) : (
         <div className="space-y-2">
           {filtered.map(r => {
-            const isOpen = expanded.has(r.id);
-            const filled = hasContent(r.description);
+            const isOpen     = expanded.has(r.id) || editingId === r.id;
+            const isEditing  = editingId === r.id;
+            const filled     = hasContent(r.description);
+            const justSaved  = savedFlash === r.id;
+
             return (
               <div key={r.id} className="pes-card overflow-hidden">
                 <button
@@ -179,12 +261,17 @@ export default function OrderDescriptionsClient({ rows, units }: Props) {
                     </span>
                   )}
                   <span className="flex-1 text-[13.5px] text-[var(--text)] truncate">{r.name}</span>
-                  {!filled && (
+                  {justSaved && (
+                    <span className="text-[10.5px] text-emerald-400 bg-emerald-500/15 px-2 py-0.5 rounded animate-pulse">
+                      ✓ Saved
+                    </span>
+                  )}
+                  {!justSaved && !filled && (
                     <span className="text-[10.5px] text-[var(--text-3)] bg-[var(--surface-3)] px-2 py-0.5 rounded">
                       No description
                     </span>
                   )}
-                  {filled && (
+                  {!justSaved && filled && (
                     <span className="text-[10.5px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded">
                       ✓ Filled
                     </span>
@@ -193,31 +280,84 @@ export default function OrderDescriptionsClient({ rows, units }: Props) {
 
                 {isOpen && (
                   <div className="border-t border-[var(--border)] p-4 bg-[var(--surface)]/40 space-y-3">
-                    {!filled ? (
-                      <div className="text-center py-4">
-                        <p className="text-[12.5px] text-[var(--text-3)] mb-2">No description added yet.</p>
-                        <Link href={`/orders/${r.id}/edit?tab=description`}>
-                          <button className="pes-btn-primary text-xs">+ Add Description</button>
-                        </Link>
-                      </div>
-                    ) : (
+
+                    {/* EDIT MODE — inline form */}
+                    {isEditing ? (
                       <>
-                        <Field label="🎯 Objective"        value={r.description?.objective} />
-                        <Field label="🗺 Scope"             value={r.description?.scope} />
-                        <Field label="💡 Rationale"         value={r.description?.rationale} />
-                        <Field label="🛡 Governance Impact" value={r.description?.governanceImpact} />
-                        <Field label="🏢 Affected Unit"     value={r.description?.affectedUnit} />
-                        <Field label="📄 Related Policies"  value={r.description?.relatedPolicies} />
-                        <Field label="📎 Required Evidence" value={r.description?.requiredEvidence} />
-                        <Field label="⚠ Risks / Flags"      value={r.description?.risks} />
-                        <div className="flex items-center justify-between pt-2 border-t border-[var(--border)]/50">
-                          <span className="text-[11px] text-[var(--text-3)]">
-                            Last edited: {r.description ? new Date(r.description.updatedAt).toLocaleDateString('en-GB') : '—'}
-                          </span>
-                          <Link href={`/orders/${r.id}`}>
-                            <button className="pes-btn-ghost text-xs">→ Open Order</button>
-                          </Link>
+                        {FIELDS.map(({ key, label }) => (
+                          <div key={key}>
+                            <div className="text-[10.5px] font-bold uppercase tracking-wider text-[var(--text-3)] mb-1">
+                              {label}
+                            </div>
+                            <textarea
+                              value={editForm[key] ?? ''}
+                              onChange={e => setEditForm(f => ({ ...f, [key]: e.target.value }))}
+                              rows={key === 'scope' || key === 'rationale' ? 5 : 2}
+                              className="pes-input w-full text-[12.5px] leading-relaxed"
+                              style={{ resize: 'vertical', minHeight: 40 }}
+                              placeholder={`Enter ${label.replace(/[^\w ]/g, '').trim().toLowerCase()}…`}
+                            />
+                          </div>
+                        ))}
+
+                        {saveError && (
+                          <div className="text-[12px] text-red-400 bg-red-500/10 border border-red-500/30 rounded px-3 py-2">
+                            ⚠ {saveError}
+                          </div>
+                        )}
+
+                        <div className="flex items-center justify-end gap-2 pt-2 border-t border-[var(--border)]/50">
+                          <button
+                            onClick={cancelEdit}
+                            disabled={saving}
+                            className="pes-btn-ghost text-xs"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={() => saveEdit(r.id)}
+                            disabled={saving}
+                            className="pes-btn-primary text-xs"
+                          >
+                            {saving ? 'Saving…' : '✓ Save'}
+                          </button>
                         </div>
+                      </>
+                    ) : (
+                      /* VIEW MODE */
+                      <>
+                        {!filled ? (
+                          <div className="text-center py-4">
+                            <p className="text-[12.5px] text-[var(--text-3)] mb-3">No description added yet.</p>
+                            <button onClick={() => startEdit(r)} className="pes-btn-primary text-xs">
+                              + Add Description
+                            </button>
+                          </div>
+                        ) : (
+                          <>
+                            <Field label="🎯 Objective"        value={r.description?.objective} />
+                            <Field label="🗺 Scope"             value={r.description?.scope} />
+                            <Field label="💡 Rationale"         value={r.description?.rationale} />
+                            <Field label="🛡 Governance Impact" value={r.description?.governanceImpact} />
+                            <Field label="🏢 Affected Unit"     value={r.description?.affectedUnit} />
+                            <Field label="📄 Related Policies"  value={r.description?.relatedPolicies} />
+                            <Field label="📎 Required Evidence" value={r.description?.requiredEvidence} />
+                            <Field label="⚠ Risks / Flags"      value={r.description?.risks} />
+                            <div className="flex items-center justify-between pt-2 border-t border-[var(--border)]/50">
+                              <span className="text-[11px] text-[var(--text-3)]">
+                                Last edited: {r.description ? new Date(r.description.updatedAt).toLocaleDateString('en-GB') : '—'}
+                              </span>
+                              <div className="flex gap-2">
+                                <button onClick={() => startEdit(r)} className="pes-btn-ghost text-xs">
+                                  ✏ Edit
+                                </button>
+                                <Link href={`/orders/${r.id}`}>
+                                  <button className="pes-btn-ghost text-xs">→ Open Order</button>
+                                </Link>
+                              </div>
+                            </div>
+                          </>
+                        )}
                       </>
                     )}
                   </div>

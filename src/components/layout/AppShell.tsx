@@ -309,6 +309,8 @@ export default function AppShell({ user, children }: { user: AuthUser; children:
         flex: 1, display: 'flex', flexDirection: 'column', minHeight: '100vh',
         marginLeft: sidebarOpen ? '240px' : '52px',
         transition: 'margin-left 0.2s ease',
+        minWidth: 0,
+        overflowX: 'hidden',
       }}>
         {/* Topbar */}
         <header style={{
@@ -340,8 +342,8 @@ export default function AppShell({ user, children }: { user: AuthUser; children:
         </header>
 
         {/* Content */}
-        <div style={{ flex: 1, padding: '24px 28px' }}>
-          <div style={{ maxWidth: 1400, margin: '0 auto', width: '100%' }}>
+        <div style={{ flex: 1, padding: '24px 28px', minWidth: 0, overflowX: 'hidden' }}>
+          <div style={{ maxWidth: 1400, margin: '0 auto', width: '100%', minWidth: 0 }}>
             {children}
           </div>
         </div>

@@ -314,30 +314,36 @@ export default function AppShell({ user, children }: { user: AuthUser; children:
         <header style={{
           position: 'sticky', top: 0, zIndex: 40, height: 56,
           background: 'var(--surface)', borderBottom: '1px solid var(--border)',
-          display: 'flex', alignItems: 'center', padding: '0 24px', gap: 12,
         }}>
-          <Breadcrumb pathname={pathname} />
-          <div style={{ flex: 1 }} />
-          <NotificationBell />
-          <Link href="/orders/new">
-            <button style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              padding: '8px 16px', borderRadius: 8, fontSize: 12.5, fontWeight: 500,
-              background: 'var(--accent)', color: '#fff', border: 'none', cursor: 'pointer',
-              transition: 'all 0.15s', letterSpacing: '0.01em',
-              boxShadow: '0 1px 2px rgba(27,58,107,0.2)',
-            }}
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--accent-2)'; (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 12px rgba(27,58,107,0.25)'; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'var(--accent)'; (e.currentTarget as HTMLElement).style.boxShadow = '0 1px 2px rgba(27,58,107,0.2)'; }}
-            >
-              {Icons.plus} New Order
-            </button>
-          </Link>
+          <div style={{
+            maxWidth: 1400, margin: '0 auto', height: '100%',
+            display: 'flex', alignItems: 'center', padding: '0 28px', gap: 12,
+          }}>
+            <Breadcrumb pathname={pathname} />
+            <div style={{ flex: 1 }} />
+            <NotificationBell />
+            <Link href="/orders/new">
+              <button style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                padding: '8px 16px', borderRadius: 8, fontSize: 12.5, fontWeight: 500,
+                background: 'var(--accent)', color: '#fff', border: 'none', cursor: 'pointer',
+                transition: 'all 0.15s', letterSpacing: '0.01em',
+                boxShadow: '0 1px 2px rgba(27,58,107,0.2)',
+              }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--accent-2)'; (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 12px rgba(27,58,107,0.25)'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'var(--accent)'; (e.currentTarget as HTMLElement).style.boxShadow = '0 1px 2px rgba(27,58,107,0.2)'; }}
+              >
+                {Icons.plus} New Order
+              </button>
+            </Link>
+          </div>
         </header>
 
         {/* Content */}
         <div style={{ flex: 1, padding: '24px 28px' }}>
-          {children}
+          <div style={{ maxWidth: 1400, margin: '0 auto', width: '100%' }}>
+            {children}
+          </div>
         </div>
       </main>
     </div>

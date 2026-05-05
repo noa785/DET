@@ -222,7 +222,7 @@ export default function OrderDescriptionsClient({ rows, units }: Props) {
   }
 
   return (
-    <div className="space-y-5 max-w-7xl">
+    <div className="space-y-5">
       <div className="flex items-end justify-between gap-4 flex-wrap">
         <div>
           <h1 className="font-display font-bold text-2xl text-[var(--text)]">Order Descriptions</h1>
@@ -332,7 +332,7 @@ export default function OrderDescriptionsClient({ rows, units }: Props) {
                           {r.unitCode}
                         </span>
                       )}
-                      <span className="flex-1 text-[12.5px] text-[var(--text)] truncate">{r.name}</span>
+                      <span className="flex-1 min-w-0 text-[12.5px] text-[var(--text)] truncate">{r.name}</span>
                     </button>
                   ));
                 })()}
@@ -420,7 +420,7 @@ export default function OrderDescriptionsClient({ rows, units }: Props) {
                       {r.unitCode}
                     </span>
                   )}
-                  <span className="flex-1 text-[13.5px] text-[var(--text)] truncate">{r.name}</span>
+                  <span className="flex-1 min-w-0 text-[13.5px] text-[var(--text)] truncate">{r.name}</span>
                   {justSaved && (
                     <span className="text-[10.5px] text-emerald-400 bg-emerald-500/15 px-2 py-0.5 rounded animate-pulse">
                       ✓ Saved

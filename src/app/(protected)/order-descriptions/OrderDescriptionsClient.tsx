@@ -36,14 +36,14 @@ interface Props {
 }
 
 const FIELDS: { key: keyof Description; label: string }[] = [
-  { key: 'objective',        label: '🎯 Objective' },
-  { key: 'scope',            label: '🗺 Scope' },
-  { key: 'rationale',        label: '💡 Rationale' },
-  { key: 'governanceImpact', label: '🛡 Governance Impact' },
-  { key: 'affectedUnit',     label: '🏢 Affected Unit' },
-  { key: 'relatedPolicies',  label: '📄 Related Policies' },
-  { key: 'requiredEvidence', label: '📎 Required Evidence' },
-  { key: 'risks',            label: '⚠ Risks / Flags' },
+  { key: 'objective',        label: 'Objective' },
+  { key: 'scope',            label: 'Scope' },
+  { key: 'rationale',        label: 'Rationale' },
+  { key: 'governanceImpact', label: 'Governance Impact' },
+  { key: 'affectedUnit',     label: 'Affected Unit' },
+  { key: 'relatedPolicies',  label: 'Related Policies' },
+  { key: 'requiredEvidence', label: 'Required Evidence' },
+  { key: 'risks',            label: 'Risks / Flags' },
 ];
 
 export default function OrderDescriptionsClient({ rows, units }: Props) {
@@ -192,7 +192,7 @@ export default function OrderDescriptionsClient({ rows, units }: Props) {
     <div className="space-y-5 max-w-7xl">
       <div className="flex items-end justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="font-display font-bold text-2xl text-[var(--text)]">📝 Order Descriptions</h1>
+          <h1 className="font-display font-bold text-2xl text-[var(--text)]">Order Descriptions</h1>
           <p className="text-[12.5px] text-[var(--text-3)] mt-1">
             {rows.length} total · {filledCount} with content · {filtered.length} shown
           </p>
@@ -393,23 +393,23 @@ export default function OrderDescriptionsClient({ rows, units }: Props) {
                 </button>
 
                 {isOpen && (
-                  <div className="border-t border-[var(--border)] p-4 bg-[var(--surface)]/40 space-y-3">
+                  <div className="border-t border-[var(--border)] p-5 bg-[var(--surface)]/40 space-y-5">
 
                     {/* EDIT MODE — inline form */}
                     {isEditing ? (
                       <>
                         {FIELDS.map(({ key, label }) => (
                           <div key={key}>
-                            <div className="text-[10.5px] font-bold uppercase tracking-wider text-[var(--text-3)] mb-1">
+                            <div className="text-[12px] font-extrabold uppercase tracking-wider text-[var(--text)] mb-1.5 pb-1 border-b border-[var(--border)]">
                               {label}
                             </div>
                             <textarea
                               value={editForm[key] ?? ''}
                               onChange={e => setEditForm(f => ({ ...f, [key]: e.target.value }))}
                               rows={key === 'scope' || key === 'rationale' ? 5 : 2}
-                              className="pes-input w-full text-[12.5px] leading-relaxed"
+                              className="pes-input w-full text-[13px] leading-relaxed"
                               style={{ resize: 'vertical', minHeight: 40 }}
-                              placeholder={`Enter ${label.replace(/[^\w ]/g, '').trim().toLowerCase()}…`}
+                              placeholder={`Enter ${label.toLowerCase()}…`}
                             />
                           </div>
                         ))}
@@ -449,14 +449,14 @@ export default function OrderDescriptionsClient({ rows, units }: Props) {
                           </div>
                         ) : (
                           <>
-                            <Field label="🎯 Objective"        value={r.description?.objective} />
-                            <Field label="🗺 Scope"             value={r.description?.scope} />
-                            <Field label="💡 Rationale"         value={r.description?.rationale} />
-                            <Field label="🛡 Governance Impact" value={r.description?.governanceImpact} />
-                            <Field label="🏢 Affected Unit"     value={r.description?.affectedUnit} />
-                            <Field label="📄 Related Policies"  value={r.description?.relatedPolicies} />
-                            <Field label="📎 Required Evidence" value={r.description?.requiredEvidence} />
-                            <Field label="⚠ Risks / Flags"      value={r.description?.risks} />
+                            <Field label="Objective"          value={r.description?.objective} />
+                            <Field label="Scope"              value={r.description?.scope} />
+                            <Field label="Rationale"          value={r.description?.rationale} />
+                            <Field label="Governance Impact"  value={r.description?.governanceImpact} />
+                            <Field label="Affected Unit"      value={r.description?.affectedUnit} />
+                            <Field label="Related Policies"   value={r.description?.relatedPolicies} />
+                            <Field label="Required Evidence"  value={r.description?.requiredEvidence} />
+                            <Field label="Risks / Flags"      value={r.description?.risks} />
                             <div className="flex items-center justify-between pt-2 border-t border-[var(--border)]/50">
                               <span className="text-[11px] text-[var(--text-3)]">
                                 Last edited: {r.description ? new Date(r.description.updatedAt).toLocaleDateString('en-GB') : '—'}
@@ -489,8 +489,10 @@ function Field({ label, value }: { label: string; value: string | null | undefin
   if (!value) return null;
   return (
     <div>
-      <div className="text-[10.5px] font-bold uppercase tracking-wider text-[var(--text-3)] mb-1">{label}</div>
-      <p className="text-[12.5px] text-[var(--text)] leading-relaxed whitespace-pre-wrap">{value}</p>
+      <div className="text-[12px] font-extrabold uppercase tracking-wider text-[var(--text)] mb-1.5 pb-1 border-b border-[var(--border)]">
+        {label}
+      </div>
+      <p className="text-[13px] text-[var(--text)] leading-relaxed whitespace-pre-wrap">{value}</p>
     </div>
   );
 }

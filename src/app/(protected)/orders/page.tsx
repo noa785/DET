@@ -10,12 +10,24 @@ export const metadata: Metadata = { title: 'Orders — DGCC PES' };
 export default async function OrdersPage({
   searchParams,
 }: {
-  searchParams: { status?: string; priority?: string; unit?: string; overdue?: string; page?: string };
+  searchParams: { status?: string; priority?: string; unit?: string; overdue?: string; page?: string; sort?: string };
 }) {
   const user = await requireAuth();
 
   const page     = parseInt(searchParams.page ?? '1');
   const pageSize = 50;
+
+  // Sort options — default is "code-asc" (ORD-0001 → ORD-0090)
+  const sortKey = searchParams.sort ?? 'code-asc';
+  const sortMap: Record<string, any> = {
+    'code-asc':    { orderCode: 'asc'  },
+    'code-desc':   { orderCode: 'desc' },
+    'date-newest': { createdAt: 'desc' },
+    'date-oldest': { createdAt: 'asc'  },
+    'name-asc':    { name:      'asc'  },
+    'name-desc':   { name:      'desc' },
+  };
+  const orderBy = sortMap[sortKey] ?? sortMap['code-asc'];
 
   // Build where clause
   const where: any = { isDeleted: false };
@@ -31,7 +43,7 @@ export default async function OrdersPage({
         project: { select: { code: true, name: true } },
         owner:   { select: { id: true, name: true } },
       },
-      orderBy: { orderCode: 'desc' },
+      orderBy,
       skip:  (page - 1) * pageSize,
       take:  pageSize,
     }),
@@ -89,6 +101,7 @@ export default async function OrdersPage({
       units={units}
       projects={projects}
       userRole={user.role}
+      urlSort={sortKey}
     />
   );
 }

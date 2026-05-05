@@ -27,12 +27,13 @@ interface Props {
   units: { id: string; code: string; name: string }[];
   projects: { id: string; code: string; name: string }[];
   userRole?: string;
+  urlSort?: string;
 }
 
 type SortKey = 'orderCode' | 'name' | 'status' | 'priority' | 'percentComplete' | 'dueDate' | 'unitCode';
 
 // ── Component ──────────────────────────────────────────────────
-export default function OrdersClient({ orders, total, page, pageSize, units, projects, userRole }: Props) {
+export default function OrdersClient({ orders, total, page, pageSize, units, projects, userRole, urlSort }: Props) {
   const router       = useRouter();
   const pathname     = usePathname();
   const searchParams = useSearchParams();
@@ -254,6 +255,22 @@ export default function OrdersClient({ orders, total, page, pageSize, units, pro
             <option value="">All — Gov. Review</option>
             <option value="yes">Requires Gov. Review</option>
             <option value="no">No Gov. Review</option>
+          </select>
+
+          {/* Sort dropdown */}
+          <select
+            value={urlSort ?? 'code-asc'}
+            onChange={e => setURLParam('sort', e.target.value === 'code-asc' ? null : e.target.value)}
+            className="pes-input"
+            style={{ width: 220, paddingTop: 7, paddingBottom: 7, fontSize: 12 }}
+            title="Sort orders"
+          >
+            <option value="code-asc">↑ Code (ORD-0001 → ORD-9999)</option>
+            <option value="code-desc">↓ Code (ORD-9999 → ORD-0001)</option>
+            <option value="date-newest">↓ Newest first (Date created)</option>
+            <option value="date-oldest">↑ Oldest first (Date created)</option>
+            <option value="name-asc">↑ Name (A → Z)</option>
+            <option value="name-desc">↓ Name (Z → A)</option>
           </select>
 
           {/* Clear */}

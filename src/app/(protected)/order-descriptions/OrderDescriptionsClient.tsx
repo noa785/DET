@@ -52,6 +52,7 @@ export default function OrderDescriptionsClient({ rows, units }: Props) {
   const [search, setSearch]     = useState('');
   const [unitFilter, setUnit]   = useState<string>('');
   const [showOnlyFilled, setShowOnlyFilled] = useState(false);
+  const [sortKey, setSortKey]   = useState<string>('code-asc');
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   // Inline edit state
@@ -134,7 +135,7 @@ export default function OrderDescriptionsClient({ rows, units }: Props) {
 
   // Apply filters
   const filtered = useMemo(() => {
-    return rows.filter(r => {
+    const arr = rows.filter(r => {
       if (showOnlyFilled && !hasContent(r.description)) return false;
       if (unitFilter && r.unitCode !== unitFilter) return false;
       if (search) {
@@ -150,7 +151,39 @@ export default function OrderDescriptionsClient({ rows, units }: Props) {
       }
       return true;
     });
-  }, [rows, search, unitFilter, showOnlyFilled]);
+
+    // Apply sort
+    const sorted = [...arr];
+    switch (sortKey) {
+      case 'code-asc':
+        sorted.sort((a, b) => a.orderCode.localeCompare(b.orderCode));
+        break;
+      case 'code-desc':
+        sorted.sort((a, b) => b.orderCode.localeCompare(a.orderCode));
+        break;
+      case 'date-newest':
+        sorted.sort((a, b) => {
+          const aD = a.description?.updatedAt ?? '';
+          const bD = b.description?.updatedAt ?? '';
+          return bD.localeCompare(aD);
+        });
+        break;
+      case 'date-oldest':
+        sorted.sort((a, b) => {
+          const aD = a.description?.updatedAt ?? '';
+          const bD = b.description?.updatedAt ?? '';
+          return aD.localeCompare(bD);
+        });
+        break;
+      case 'name-asc':
+        sorted.sort((a, b) => a.name.localeCompare(b.name));
+        break;
+      case 'name-desc':
+        sorted.sort((a, b) => b.name.localeCompare(a.name));
+        break;
+    }
+    return sorted;
+  }, [rows, search, unitFilter, showOnlyFilled, sortKey]);
 
   const filledCount = rows.filter(r => hasContent(r.description)).length;
 
@@ -326,6 +359,19 @@ export default function OrderDescriptionsClient({ rows, units }: Props) {
           {units.map(u => (
             <option key={u.code} value={u.code}>{u.code} — {u.name}</option>
           ))}
+        </select>
+        <select
+          value={sortKey}
+          onChange={e => setSortKey(e.target.value)}
+          className="pes-input min-w-[230px]"
+          title="Sort"
+        >
+          <option value="code-asc">↑ Code (ORD-0001 → ORD-9999)</option>
+          <option value="code-desc">↓ Code (ORD-9999 → ORD-0001)</option>
+          <option value="date-newest">↓ Newest first (Last edited)</option>
+          <option value="date-oldest">↑ Oldest first (Last edited)</option>
+          <option value="name-asc">↑ Name (A → Z)</option>
+          <option value="name-desc">↓ Name (Z → A)</option>
         </select>
         <label className="flex items-center gap-2 text-[12.5px] text-[var(--text-2)] cursor-pointer">
           <input

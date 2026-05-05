@@ -61,6 +61,10 @@ export default function OrderDescriptionsClient({ rows, units }: Props) {
   const [saveError, setSaveError]   = useState<string | null>(null);
   const [savedFlash, setSavedFlash] = useState<string | null>(null);
 
+  // "+ Add Description" picker state
+  const [pickerOpen, setPickerOpen]   = useState(false);
+  const [pickerSearch, setPickerSearch] = useState('');
+
   function toggle(id: string) {
     if (editingId === id) return; // don't collapse while editing
     setExpanded(prev => {
@@ -193,9 +197,119 @@ export default function OrderDescriptionsClient({ rows, units }: Props) {
             {rows.length} total · {filledCount} with content · {filtered.length} shown
           </p>
         </div>
-        <button onClick={exportCSV} className="pes-btn-ghost text-[12.5px]">
-          ⬇ Export CSV ({filtered.length})
-        </button>
+        <div className="flex items-center gap-2 relative">
+          <button
+            onClick={() => { setPickerOpen(o => !o); setPickerSearch(''); }}
+            className="pes-btn-primary text-[12.5px]"
+            title="Add a description to an existing order that doesn't have one yet"
+          >
+            + Add Description
+          </button>
+          <button onClick={exportCSV} className="pes-btn-ghost text-[12.5px]">
+            ⬇ Export CSV ({filtered.length})
+          </button>
+
+          {/* Picker dropdown */}
+          {pickerOpen && (
+            <div
+              className="pes-card absolute right-0 top-full mt-2 w-[420px] max-h-[460px] overflow-hidden flex flex-col z-50 shadow-2xl"
+              style={{ background: 'var(--surface-2)' }}
+            >
+              <div className="p-3 border-b border-[var(--border)]">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="font-display font-bold text-[13px] text-[var(--text)]">
+                    Pick an order
+                  </h3>
+                  <button
+                    onClick={() => setPickerOpen(false)}
+                    className="text-[var(--text-3)] hover:text-[var(--text)] text-base leading-none"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <p className="text-[11px] text-[var(--text-3)] mb-2">
+                  Showing only orders without a description. Pick one to start writing.
+                </p>
+                <input
+                  type="text"
+                  placeholder="🔍 Search by code or name…"
+                  value={pickerSearch}
+                  onChange={e => setPickerSearch(e.target.value)}
+                  autoFocus
+                  className="pes-input w-full text-[12px]"
+                />
+              </div>
+              <div className="flex-1 overflow-y-auto p-2">
+                {(() => {
+                  const empty = rows.filter(r => !hasContent(r.description));
+                  const q = pickerSearch.toLowerCase().trim();
+                  const matched = q
+                    ? empty.filter(r =>
+                        r.orderCode.toLowerCase().includes(q) ||
+                        r.name.toLowerCase().includes(q) ||
+                        (r.unitCode ?? '').toLowerCase().includes(q)
+                      )
+                    : empty;
+
+                  if (empty.length === 0) {
+                    return (
+                      <div className="p-6 text-center text-[var(--text-3)] text-[12px]">
+                        ✨ Every order already has a description.
+                        <br /><br />
+                        To add a new description, first create a new order
+                        (sidebar → All Orders → + New Order), then come back here.
+                      </div>
+                    );
+                  }
+
+                  if (matched.length === 0) {
+                    return (
+                      <div className="p-6 text-center text-[var(--text-3)] text-[12px]">
+                        No empty orders match &quot;{pickerSearch}&quot;.
+                      </div>
+                    );
+                  }
+
+                  return matched.map(r => (
+                    <button
+                      key={r.id}
+                      onClick={() => {
+                        startEdit(r);
+                        setPickerOpen(false);
+                        setPickerSearch('');
+                        // scroll the row into view after a tick
+                        setTimeout(() => {
+                          const el = document.getElementById(`desc-row-${r.id}`);
+                          el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }, 100);
+                      }}
+                      className="w-full flex items-center gap-3 p-2 rounded hover:bg-[var(--surface-3)] text-left transition-colors"
+                    >
+                      <span className="font-display font-bold text-[12px] text-blue-400 min-w-[80px]">
+                        {r.orderCode}
+                      </span>
+                      {r.unitCode && (
+                        <span
+                          className="text-[10.5px] font-bold px-1.5 py-0.5 rounded"
+                          style={{
+                            background: `${r.unitColor ?? '#3b82f6'}20`,
+                            color: r.unitColor ?? '#3b82f6',
+                          }}
+                        >
+                          {r.unitCode}
+                        </span>
+                      )}
+                      <span className="flex-1 text-[12.5px] text-[var(--text)] truncate">{r.name}</span>
+                    </button>
+                  ));
+                })()}
+              </div>
+              <div className="p-2 border-t border-[var(--border)] text-[10.5px] text-[var(--text-3)] text-center">
+                {rows.filter(r => !hasContent(r.description)).length} orders without descriptions
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Filters */}
@@ -238,7 +352,7 @@ export default function OrderDescriptionsClient({ rows, units }: Props) {
             const justSaved  = savedFlash === r.id;
 
             return (
-              <div key={r.id} className="pes-card overflow-hidden">
+              <div key={r.id} id={`desc-row-${r.id}`} className="pes-card overflow-hidden">
                 <button
                   type="button"
                   onClick={() => toggle(r.id)}

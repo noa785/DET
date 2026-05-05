@@ -124,7 +124,8 @@ export default function OrdersClient({ orders, total, page, pageSize, units, pro
   function setURLParam(key: string, value: string | null) {
     const p = new URLSearchParams(searchParams.toString());
     if (value) p.set(key, value); else p.delete(key);
-    p.delete('page');
+    // Reset to page 1 when filters/search/sort change — but NOT when paginating
+    if (key !== 'page') p.delete('page');
     startTransition(() => router.push(`${pathname}?${p.toString()}`));
   }
 

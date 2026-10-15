@@ -10,8 +10,8 @@ import Link from 'next/link';
 
 const PAGE = 50;
 
-export default function OrdersClient({ section, initial, owners, units, openId }: {
-  section: SectionKey; initial: DetOrder[]; owners: string[]; units: DetUnit[]; openId: string | null;
+export default function OrdersClient({ section, initial, owners, units, openId, canEdit = true }: {
+  section: SectionKey; initial: DetOrder[]; owners: string[]; units: DetUnit[]; openId: string | null; canEdit?: boolean;
 }) {
   const [orders, setOrders] = useState(initial);
   const [filter, setFilter] = useState<'ALL' | Bucket>('ALL');
@@ -41,7 +41,7 @@ export default function OrdersClient({ section, initial, owners, units, openId }
 
   return (
     <>
-      <PageHeader section={section} title="All Orders" sub="Click any order to update its progress." />
+      <PageHeader section={section} title="All Orders" sub={canEdit ? 'Click any order to update its progress.' : `View only. ${SECTIONS[section].name} is updated by its own team.`} />
       <div className="card">
         <div className="toolbar">
           <div className="chips">
@@ -72,7 +72,7 @@ export default function OrdersClient({ section, initial, owners, units, openId }
               {!shown.length && (
                 <tr><td colSpan={8}><div className="empty">
                   <b>{orders.length ? 'No orders match' : 'No orders here yet'}</b>
-                  {orders.length ? 'Try another filter or search, or clear the filters.' : <>Use <Link href={`/work/${SECTIONS[section].slug}/new`} className="link">Add Order</Link> to create the first one.</>}
+                  {orders.length ? 'Try another filter or search, or clear the filters.' : canEdit ? <>Use <Link href={`/work/${SECTIONS[section].slug}/new`} className="link">Add Order</Link> to create the first one.</> : 'This section has no orders yet.'}
                 </div></td></tr>
               )}
             </tbody>
@@ -85,7 +85,7 @@ export default function OrdersClient({ section, initial, owners, units, openId }
           </div>
         )}
       </div>
-      <OrderDrawer order={openOrder} owners={owners} units={units} onClose={() => setOpenOrder(null)}
+      <OrderDrawer order={openOrder} owners={owners} units={units} readOnly={!canEdit} onClose={() => setOpenOrder(null)}
         onSaved={o => setOrders(prev => (o.section === section ? prev.map(x => (x.id === o.id ? o : x)) : prev.filter(x => x.id !== o.id)))} />
     </>
   );

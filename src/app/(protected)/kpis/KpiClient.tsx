@@ -7,7 +7,9 @@ import { AUTOMATION_TARGETS, SECTIONS, SECTION_LIST, SYSTEM_STATUS, automationRa
 import { GovPill, Icon, Ring, api, sectionIcon, toast } from '@/components/det/ui';
 import { downloadKpiReport, type ReportKind } from '@/lib/det/report';
 
-export default function KpiClient({ orders, systems, userName }: { orders: DetOrder[]; systems: DetSystem[]; userName: string }) {
+export default function KpiClient({ orders, systems, userName, reportSections = [] }: {
+  orders: DetOrder[]; systems: DetSystem[]; userName: string; reportSections?: SectionKey[];
+}) {
   const [busy, setBusy] = useState<ReportKind | null>(null);
   const done = orders.filter(o => o.bucket === 'DONE').length;
   const late = orders.filter(o => isLate(o)).length;
@@ -25,12 +27,17 @@ export default function KpiClient({ orders, systems, userName }: { orders: DetOr
   const attention = orders.filter(o => isLate(o) || o.gov === 'PENDING')
     .sort((a, b) => (a.due ?? '9999').localeCompare(b.due ?? '9999'));
 
+  // Each team downloads its own section's report; whoever may download both gets the full report.
+  const scope: SectionKey | null = reportSections.length === 1 ? reportSections[0] : null;
+  const canReport = reportSections.length > 0;
+  const scopeLabel = scope ? ` · ${SECTIONS[scope].name}` : '';
+
   async function report(kind: ReportKind) {
     setBusy(kind);
     try {
-      await downloadKpiReport(orders, systems, userName, kind);
+      await downloadKpiReport(scope ? orders.filter(o => o.section === scope) : orders, systems, userName, kind, scope ?? undefined);
       toast(kind === 'detailed' ? 'Detailed report downloaded' : 'Summary report downloaded');
-      api('/api/work/activity', 'POST', { action: 'EXPORT', notes: `Downloaded the ${kind} KPI report (PDF)` }).catch(() => null);
+      api('/api/work/activity', 'POST', { action: 'EXPORT', notes: `Downloaded the ${kind} KPI report (PDF)${scopeLabel}` }).catch(() => null);
     }
     catch { toast('Could not create the report'); }
     finally { setBusy(null); }
@@ -62,14 +69,16 @@ export default function KpiClient({ orders, systems, userName }: { orders: DetOr
           <h1>{greet}, {first}</h1>
           <p>Three numbers that show where we are</p>
         </div>
-        <div className="hero-btns">
-          <button className="btn hero-btn" onClick={() => report('summary')} disabled={!!busy} title="One page: the KPI and the systems">
-            <Icon name="pdf" size={17} />{busy === 'summary' ? 'Preparing…' : 'Summary report'}
-          </button>
-          <button className="btn hero-btn alt" onClick={() => report('detailed')} disabled={!!busy} title="The KPI, systems, work indicators and what needs attention">
-            <Icon name="pdf" size={17} />{busy === 'detailed' ? 'Preparing…' : 'Detailed report'}
-          </button>
-        </div>
+        {canReport && (
+          <div className="hero-btns">
+            <button className="btn hero-btn" onClick={() => report('summary')} disabled={!!busy} title={`One page: the KPI and the systems${scopeLabel}`}>
+              <Icon name="pdf" size={17} />{busy === 'summary' ? 'Preparing…' : `Summary report${scopeLabel}`}
+            </button>
+            <button className="btn hero-btn alt" onClick={() => report('detailed')} disabled={!!busy} title={`The KPI, systems, work indicators and what needs attention${scopeLabel}`}>
+              <Icon name="pdf" size={17} />{busy === 'detailed' ? 'Preparing…' : `Detailed report${scopeLabel}`}
+            </button>
+          </div>
+        )}
       </section>
 
       <div className="grid g3">

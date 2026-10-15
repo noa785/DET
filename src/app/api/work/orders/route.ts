@@ -7,6 +7,7 @@ import { prisma } from '@/lib/prisma/client';
 import { requirePermission, isErrorResponse } from '@/lib/auth/session';
 import { audit } from '@/lib/audit/logger';
 import { nextOrderCode, toDetOrder, DET_ORDER_SELECT } from '@/lib/det/server';
+import { canEditSection, SECTIONS } from '@/lib/det/shared';
 
 const CreateSchema = z.object({
   section:   z.enum(['SYSTEMS_ENGINEERING', 'AUTOMATION']),
@@ -21,7 +22,8 @@ const CreateSchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
-  const user = await requirePermission('orders:create');
+  // Each team adds orders only in its own section (see canEditSection in lib/det/shared).
+  const user = await requirePermission('orders:view');
   if (isErrorResponse(user)) return user;
 
   const parsed = CreateSchema.safeParse(await req.json().catch(() => null));
@@ -29,6 +31,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: parsed.error.issues[0]?.message ?? 'Invalid data' }, { status: 400 });
   }
   const b = parsed.data;
+  if (!canEditSection(user.role, b.section)) {
+    return NextResponse.json({ error: `You can view ${SECTIONS[b.section].name} but not add orders to it.` }, { status: 403 });
+  }
   const unit = b.unitCode ? await prisma.unit.findUnique({ where: { code: b.unitCode }, select: { id: true } }) : null;
   const points = b.points.filter(Boolean);
   const orderCode = await nextOrderCode(b.section);

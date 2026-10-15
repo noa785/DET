@@ -139,3 +139,28 @@ export function automationRate(systems: DetSystem[]) {
 export function nextTarget(now = new Date()) {
   return AUTOMATION_TARGETS.find(t => t.year >= now.getFullYear()) ?? AUTOMATION_TARGETS[AUTOMATION_TARGETS.length - 1];
 }
+
+/* ── Section access: who edits which section, and whose reports they download ──
+   Everyone signed in can see both sections. Each team writes only in its own section
+   and downloads its own section's files. The committee chair sees and downloads both.
+     TECH_ADMIN (Nora)          edits Systems Engineering, downloads Systems Engineering
+     GOV_EDITOR (Bushra)        edits Automation,          downloads Automation
+     IMPORT_VIEWER (Eman)       view only,                 downloads both sections
+     SUPER_ADMIN, ADMIN         edit and download both (fallback for administrators)          */
+const EDIT_BY_ROLE: Record<string, SectionKey[]> = {
+  SUPER_ADMIN: ['SYSTEMS_ENGINEERING', 'AUTOMATION'],
+  ADMIN:       ['SYSTEMS_ENGINEERING', 'AUTOMATION'],
+  TECH_ADMIN:  ['SYSTEMS_ENGINEERING'],
+  GOV_EDITOR:  ['AUTOMATION'],
+};
+const DOWNLOAD_BY_ROLE: Record<string, SectionKey[]> = {
+  SUPER_ADMIN:   ['SYSTEMS_ENGINEERING', 'AUTOMATION'],
+  ADMIN:         ['SYSTEMS_ENGINEERING', 'AUTOMATION'],
+  IMPORT_VIEWER: ['SYSTEMS_ENGINEERING', 'AUTOMATION'],
+  TECH_ADMIN:    ['SYSTEMS_ENGINEERING'],
+  GOV_EDITOR:    ['AUTOMATION'],
+};
+export function editableSections(role: string): SectionKey[] { return EDIT_BY_ROLE[role] ?? []; }
+export function downloadableSections(role: string): SectionKey[] { return DOWNLOAD_BY_ROLE[role] ?? []; }
+export const canEditSection = (role: string, s: SectionKey) => editableSections(role).includes(s);
+export const canDownloadSection = (role: string, s: SectionKey) => downloadableSections(role).includes(s);

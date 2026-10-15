@@ -9,7 +9,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { hasPermission, type AuthUser } from '@/types';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
-import { SECTION_LIST, type SectionKey } from '@/lib/det/shared';
+import { SECTION_LIST, canDownloadSection, canEditSection, type SectionKey } from '@/lib/det/shared';
 import { DetMark, Icon, ToastHost } from '@/components/det/ui';
 import '@/styles/det.css';
 
@@ -58,7 +58,6 @@ export default function AppShell({ user, counts = {}, children }: {
   const view = path.endsWith('/grid') ? 'Grid Editor' : path.endsWith('/new') ? 'Add Order' : 'All Orders';
   const crumbs = sec ? <>{sec.name} / <b>{view}</b></> : path.startsWith('/kpis') ? <b>Performance KPIs</b>
     : path.startsWith('/admin/log') ? <>Admin / <b>Admin Log</b></> : <b>Digital Enterprise Tracker</b>;
-  const canExport = hasPermission(user.role, 'orders:export');
   const canAudit = hasPermission(user.role, 'audit:view');
 
   async function signOut() {
@@ -99,9 +98,9 @@ export default function AppShell({ user, counts = {}, children }: {
                 <div className="sec-items" id={`nav-${s.slug}`} ref={inert(!isOpen)}>
                   <div><div className="inner">
                     {item(`/work/${s.slug}`, 'All Orders', 'orders', <span className="count">{counts[s.key] ?? 0}</span>)}
-                    {item(`/work/${s.slug}/grid`, 'Grid Editor', 'grid')}
-                    {item(`/work/${s.slug}/new`, 'Add Order', 'plus', null, 'add')}
-                    {canExport && (
+                    {canEditSection(user.role, s.key) && item(`/work/${s.slug}/grid`, 'Grid Editor', 'grid')}
+                    {canEditSection(user.role, s.key) && item(`/work/${s.slug}/new`, 'Add Order', 'plus', null, 'add')}
+                    {canDownloadSection(user.role, s.key) && (
                       <a className="item" href={`/api/work/export?section=${s.slug}`} download title={`Download ${s.name} as an Excel file`}>
                         <Icon name="xls" size={17} />Download Excel
                       </a>

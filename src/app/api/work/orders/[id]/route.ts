@@ -7,7 +7,7 @@ import { prisma } from '@/lib/prisma/client';
 import { requirePermission, isErrorResponse } from '@/lib/auth/session';
 import { audit } from '@/lib/audit/logger';
 import { toDetOrder, DET_ORDER_SELECT } from '@/lib/det/server';
-import { BUCKETS, GOV, bucketOf, type Bucket, type DbStatus, type GovStatus } from '@/lib/det/shared';
+import { BUCKETS, GOV, SECTIONS, bucketOf, canEditSection, type Bucket, type DbStatus, type GovStatus, type SectionKey } from '@/lib/det/shared';
 
 const PatchSchema = z.object({
   name:      z.string().trim().min(1).max(500).optional(),
@@ -47,7 +47,8 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 
 // PATCH: update any of the simple fields
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
-  const user = await requirePermission('orders:edit');
+  // Each team edits only its own section (see canEditSection in lib/det/shared).
+  const user = await requirePermission('orders:view');
   if (isErrorResponse(user)) return user;
 
   const parsed = PatchSchema.safeParse(await req.json().catch(() => null));
@@ -59,6 +60,13 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     select: { id: true, orderCode: true, status: true, percentComplete: true, govStatus: true, section: true, dueDate: true, startDate: true, rescheduleCount: true, ownerName: true, unit: { select: { code: true } } },
   });
   if (!existing) return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+  const fromSection = existing.section as SectionKey;
+  if (!canEditSection(user.role, fromSection)) {
+    return NextResponse.json({ error: `You can view ${SECTIONS[fromSection].name} but not edit it.` }, { status: 403 });
+  }
+  if (b.section !== undefined && b.section !== fromSection && !canEditSection(user.role, b.section)) {
+    return NextResponse.json({ error: `You cannot move orders into ${SECTIONS[b.section].name}.` }, { status: 403 });
+  }
 
   const changes: string[] = [];
   const data: Record<string, unknown> = { updatedById: user.id };

@@ -6,7 +6,7 @@
 //            orders, the work indicators per section, and the orders that need attention.
 // Built in the browser with jsPDF; the header image lives in /public/brand/report-header.png.
 
-import { AUTOMATION_TARGETS, BUCKETS, GOV, SECTION_LIST, SYSTEM_STATUS, automationRate, fdate, isLate, nextTarget, pct, type DetOrder, type DetSystem } from './shared';
+import { AUTOMATION_TARGETS, BUCKETS, GOV, SECTIONS, SECTION_LIST, SYSTEM_STATUS, automationRate, fdate, isLate, nextTarget, pct, type DetOrder, type DetSystem, type SectionKey } from './shared';
 
 export type ReportKind = 'summary' | 'detailed';
 
@@ -27,8 +27,10 @@ function loadImage(src: string): Promise<HTMLImageElement> {
   });
 }
 
-export async function downloadKpiReport(orders: DetOrder[], systems: DetSystem[], generatedBy: string, kind: ReportKind = 'summary') {
+/** scope: one section's report (its orders only); leave it out for the full report of both sections. */
+export async function downloadKpiReport(orders: DetOrder[], systems: DetSystem[], generatedBy: string, kind: ReportKind = 'summary', scope?: SectionKey) {
   const detailed = kind === 'detailed';
+  const sections = scope ? SECTION_LIST.filter(s => s.key === scope) : SECTION_LIST;
   const preparedBy = generatedBy;
   const [{ jsPDF }, autoTableMod, head] = await Promise.all([
     import('jspdf'),
@@ -53,7 +55,7 @@ export async function downloadKpiReport(orders: DetOrder[], systems: DetSystem[]
   let hijri = '';
   try { hijri = new Intl.DateTimeFormat('en-u-ca-islamic-umalqura', { day: 'numeric', month: 'long', year: 'numeric' }).format(now).replace(/[^\x20-\x7E]/g, "'"); } catch { /* not supported */ }
   const p2 = (n: number) => String(n).padStart(2, '0');
-  const ref = `DET-${detailed ? 'RPD' : 'RPT'}-${now.getFullYear()}${p2(now.getMonth() + 1)}${p2(now.getDate())}-${p2(now.getHours())}${p2(now.getMinutes())}`;
+  const ref = `DET-${detailed ? 'RPD' : 'RPT'}${scope ? `-${SECTIONS[scope].short}` : ''}-${now.getFullYear()}${p2(now.getMonth() + 1)}${p2(now.getDate())}-${p2(now.getHours())}${p2(now.getMinutes())}`;
   const rgb = (hex: string): [number, number, number] => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16)) as [number, number, number];
   const lastY = () => (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY;
 
@@ -68,7 +70,8 @@ export async function downloadKpiReport(orders: DetOrder[], systems: DetSystem[]
   // Reference block
   doc.setFontSize(9);
   ([['Reference No.', ref], ['Date', `${greg}${hijri ? '  |  ' + hijri : ''}`],
-    ['Subject', detailed ? 'Detailed KPI report: automation of administrative and academic systems' : 'Annual KPI report: automation of administrative and academic systems'], ['Attachments', 'None']] as const)
+    ['Subject', detailed ? 'Detailed KPI report: automation of administrative and academic systems' : 'Annual KPI report: automation of administrative and academic systems'],
+    ...(scope ? [['Section', SECTIONS[scope].name]] : []), ['Attachments', 'None']] as [string, string][])
     .forEach(([k, v]) => {
       doc.setFont(F, 'bold'); doc.setTextColor(...DARK); doc.text(`${k}:`, M, y);
       doc.setFont(F, 'normal'); doc.text(v, M + 30, y); y += 4.7;
@@ -192,7 +195,7 @@ export async function downloadKpiReport(orders: DetOrder[], systems: DetSystem[]
     autoTable(doc, {
       ...tableStyle, startY: y,
       head: [['Section', 'Orders', 'Done', 'In progress', 'Not started', 'Stuck', 'Late', 'Governance approved']],
-      body: SECTION_LIST.map(sec => {
+      body: sections.map(sec => {
         const L = orders.filter(o => o.section === sec.key);
         const by = (b: keyof typeof BUCKETS) => L.filter(o => o.bucket === b).length;
         const g = L.filter(o => o.gov !== 'NOT_REQUIRED');

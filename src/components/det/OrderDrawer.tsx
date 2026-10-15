@@ -8,8 +8,8 @@ import { BulletEditor, GovBox, Icon, Segmented, UnitSelect, api, toast } from '.
 
 type Log = { id: string; text: string; by: string; at: string };
 
-export default function OrderDrawer({ order, owners, units = [], onClose, onSaved }: {
-  order: DetOrder | null; owners: string[]; units?: DetUnit[]; onClose: () => void; onSaved: (o: DetOrder) => void;
+export default function OrderDrawer({ order, owners, units = [], readOnly = false, onClose, onSaved }: {
+  order: DetOrder | null; owners: string[]; units?: DetUnit[]; readOnly?: boolean; onClose: () => void; onSaved: (o: DetOrder) => void;
 }) {
   const [f, setF] = useState<DetOrder | null>(order);
   const [note, setNote] = useState('');
@@ -37,7 +37,7 @@ export default function OrderDrawer({ order, owners, units = [], onClose, onSave
   const setBucket = (b: Bucket) => set({ bucket: b, ...(b === 'DONE' ? { progress: 100 } : {}) });
 
   async function save() {
-    if (!f || !order) return;
+    if (!f || !order || readOnly) return;
     setSaving(true); setErr('');
     try {
       const saved = await api<DetOrder>(`/api/work/orders/${order.id}`, 'PATCH', {
@@ -64,6 +64,8 @@ export default function OrderDrawer({ order, owners, units = [], onClose, onSave
             </div>
             <div className="drawer-b">
               {err && <div className="err-banner">{err}</div>}
+              {readOnly && <div className="ro" style={{ marginBottom: 14 }}>View only. This order belongs to {SECTIONS[f.section].name}, which is updated by its own team.</div>}
+              <fieldset disabled={readOnly} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
               <div className="f">
                 <label>Progress</label>
                 <div className="range-val">{f.progress}%</div>
@@ -105,10 +107,11 @@ export default function OrderDrawer({ order, owners, units = [], onClose, onSave
                 <GovBox section={f.section} value={f.gov} note={f.govNote}
                   onChange={(gov: GovStatus) => set({ gov })} onNote={govNote => set({ govNote })} />
               </div>
-              <div className="f">
+              {!readOnly && <div className="f">
                 <label htmlFor="d-note">Update note <span className="muted" style={{ fontWeight: 400 }}>(optional)</span></label>
                 <textarea id="d-note" value={note} onChange={e => setNote(e.target.value)} placeholder="What changed?" />
-              </div>
+              </div>}
+              </fieldset>
               <div className="f">
                 <label>History</label>
                 <div className="log">
@@ -118,8 +121,8 @@ export default function OrderDrawer({ order, owners, units = [], onClose, onSave
               </div>
             </div>
             <div className="drawer-f">
-              <button className="btn" onClick={onClose}>Cancel</button>
-              <button className="btn primary" onClick={save} disabled={saving}><Icon name="check" size={16} />{saving ? 'Saving…' : 'Save changes'}</button>
+              <button className="btn" onClick={onClose}>{readOnly ? 'Close' : 'Cancel'}</button>
+              {!readOnly && <button className="btn primary" onClick={save} disabled={saving}><Icon name="check" size={16} />{saving ? 'Saving…' : 'Save changes'}</button>}
             </div>
           </>
         )}

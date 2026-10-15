@@ -27,12 +27,13 @@ interface Props {
   units: { id: string; code: string; name: string }[];
   projects: { id: string; code: string; name: string }[];
   userRole?: string;
+  urlSort?: string;
 }
 
 type SortKey = 'orderCode' | 'name' | 'status' | 'priority' | 'percentComplete' | 'dueDate' | 'unitCode';
 
 // ── Component ──────────────────────────────────────────────────
-export default function OrdersClient({ orders, total, page, pageSize, units, projects, userRole }: Props) {
+export default function OrdersClient({ orders, total, page, pageSize, units, projects, userRole, urlSort }: Props) {
   const router       = useRouter();
   const pathname     = usePathname();
   const searchParams = useSearchParams();
@@ -123,7 +124,8 @@ export default function OrdersClient({ orders, total, page, pageSize, units, pro
   function setURLParam(key: string, value: string | null) {
     const p = new URLSearchParams(searchParams.toString());
     if (value) p.set(key, value); else p.delete(key);
-    p.delete('page');
+    // Reset to page 1 when filters/search/sort change — but NOT when paginating
+    if (key !== 'page') p.delete('page');
     startTransition(() => router.push(`${pathname}?${p.toString()}`));
   }
 
@@ -256,6 +258,22 @@ export default function OrdersClient({ orders, total, page, pageSize, units, pro
             <option value="no">No Gov. Review</option>
           </select>
 
+          {/* Sort dropdown */}
+          <select
+            value={urlSort ?? 'code-asc'}
+            onChange={e => setURLParam('sort', e.target.value === 'code-asc' ? null : e.target.value)}
+            className="pes-input"
+            style={{ width: 220, paddingTop: 7, paddingBottom: 7, fontSize: 12 }}
+            title="Sort orders"
+          >
+            <option value="code-asc">↑ Code (ORD-0001 → ORD-9999)</option>
+            <option value="code-desc">↓ Code (ORD-9999 → ORD-0001)</option>
+            <option value="date-newest">↓ Newest first (Date created)</option>
+            <option value="date-oldest">↑ Oldest first (Date created)</option>
+            <option value="name-asc">↑ Name (A → Z)</option>
+            <option value="name-desc">↓ Name (Z → A)</option>
+          </select>
+
           {/* Clear */}
           {(searchParams.get('status') || searchParams.get('priority') || searchParams.get('unit') || search || govFilter) && (
             <button
@@ -362,29 +380,59 @@ export default function OrdersClient({ orders, total, page, pageSize, units, pro
         {/* Pagination */}
         {totalPages > 1 && (
           <div style={{
-            padding: '10px 20px',
+            padding: '12px 20px',
             borderTop: '1px solid var(--border)',
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            flexWrap: 'wrap', gap: 12,
           }}>
             <span style={{ fontSize: 12, color: 'var(--text-3)' }}>
-              Page {page} of {totalPages} &mdash; {total} records
+              Page {page} of {totalPages} &mdash; {total} records ({pageSize} per page)
             </span>
-            <div style={{ display: 'flex', gap: 4 }}>
-              {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => i + 1).map(p => (
+            <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+              <button
+                onClick={() => setURLParam('page', String(Math.max(1, page - 1)))}
+                disabled={page <= 1}
+                style={{
+                  padding: '6px 12px', borderRadius: 6, fontSize: 12,
+                  cursor: page <= 1 ? 'not-allowed' : 'pointer',
+                  border: '1px solid var(--border)',
+                  background: 'transparent',
+                  color: page <= 1 ? 'var(--text-3)' : 'var(--text-2)',
+                  opacity: page <= 1 ? 0.5 : 1,
+                }}
+              >
+                ‹ Prev
+              </button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
                 <button
                   key={p}
                   onClick={() => setURLParam('page', String(p))}
                   style={{
-                    width: 28, height: 28, borderRadius: 6, fontSize: 12, cursor: 'pointer',
+                    minWidth: 32, height: 28, padding: '0 8px', borderRadius: 6, fontSize: 12, cursor: 'pointer',
                     border: p === page ? 'none' : '1px solid var(--border)',
                     background: p === page ? 'var(--accent)' : 'transparent',
                     color: p === page ? '#fff' : 'var(--text-2)',
+                    fontWeight: p === page ? 600 : 400,
                     transition: 'all 0.1s',
                   }}
                 >
                   {p}
                 </button>
               ))}
+              <button
+                onClick={() => setURLParam('page', String(Math.min(totalPages, page + 1)))}
+                disabled={page >= totalPages}
+                style={{
+                  padding: '6px 12px', borderRadius: 6, fontSize: 12,
+                  cursor: page >= totalPages ? 'not-allowed' : 'pointer',
+                  border: '1px solid var(--border)',
+                  background: 'transparent',
+                  color: page >= totalPages ? 'var(--text-3)' : 'var(--text-2)',
+                  opacity: page >= totalPages ? 0.5 : 1,
+                }}
+              >
+                Next ›
+              </button>
             </div>
           </div>
         )}

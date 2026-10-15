@@ -48,6 +48,9 @@ const ALIASES: Record<string, string> = {
   'dependencies':     'dependencies',
 };
 
+// Allow up to 60 seconds for large imports (Vercel Pro)
+export const maxDuration = 60;
+
 export async function POST(req: NextRequest) {
   const user = await requirePermission('orders:create');
   if (isErrorResponse(user)) return user;
@@ -143,26 +146,33 @@ export async function POST(req: NextRequest) {
     validRows.push({ ...d, _unitId: unitId, _projectId: projectId, _ownerId: ownerId });
   }
 
-  // ── Insert valid rows ────────────────────────────────────────
+  // ── Insert valid rows (BATCHED for speed) ───────────────────
   let imported = 0;
   const insertErrors: string[] = [];
 
-  for (const row of validRows) {
+  if (validRows.length > 0) {
     try {
+      // 1. Reserve a block of order codes in ONE atomic sequence update
       const seq = await prisma.sequence.update({
         where: { id: 'order' },
-        data:  { current: { increment: 1 } },
+        data:  { current: { increment: validRows.length } },
       });
-      const orderCode = `${seq.prefix}-${String(seq.current).padStart(seq.padding, '0')}`;
+      // After increment, seq.current = the LAST reserved number.
+      // First reserved = seq.current - validRows.length + 1
+      const firstNum = seq.current - validRows.length + 1;
 
-      const ragAuto = computeRAG({
-        status:          row.status,
-        percentComplete: row.percentComplete,
-        dueDate:         row.dueDate ?? undefined,
-      });
+      // 2. Build all order records up-front
+      const orderRecords = validRows.map((row, idx) => {
+        const num = firstNum + idx;
+        const orderCode = `${seq.prefix}-${String(num).padStart(seq.padding, '0')}`;
 
-      await prisma.order.create({
-        data: {
+        const ragAuto = computeRAG({
+          status:          row.status,
+          percentComplete: row.percentComplete,
+          dueDate:         row.dueDate ?? undefined,
+        });
+
+        return {
           orderCode,
           type:             row.type,
           name:             row.name,
@@ -181,12 +191,17 @@ export async function POST(req: NextRequest) {
           plannedPercent:   computePlannedPercent(row.startDate ?? undefined, row.dueDate ?? undefined),
           createdById:      user.id,
           updatedById:      user.id,
-        },
+        };
       });
 
-      imported++;
+      // 3. ONE bulk insert (Postgres handles thousands of rows in milliseconds)
+      const result = await prisma.order.createMany({
+        data: orderRecords,
+        skipDuplicates: false,
+      });
+      imported = result.count;
     } catch (e: any) {
-      insertErrors.push(`DB error: ${e.message}`);
+      insertErrors.push(`Batch insert failed: ${e.message}`);
     }
   }
 

@@ -12,11 +12,14 @@ import { Spinner } from '@/components/ui/badges';
 // ── Types ──────────────────────────────────────────────────────
 interface ImportResult {
   imported:     number;
+  updated?:     number;
   skipped:      number;
   total:        number;
   errors:       { row: number; messages: string[] }[];
   insertErrors: string[];
 }
+
+type ImportMode = 'orders' | 'governance' | 'projects' | 'descriptions';
 
 interface Props {
   units:    { id: string; code: string; name: string }[];
@@ -295,25 +298,32 @@ function ExportSection({ units }: { units: { id: string; code: string; name: str
 // IMPORT SECTION
 // ══════════════════════════════════════════════════════════════
 function ImportSection({ canImport }: { canImport: boolean }) {
-  const [importType, setImportType] = useState<'orders' | 'governance'>('orders');
+  const [importType, setImportType] = useState<ImportMode>('orders');
+
+  const tabs: { id: ImportMode; label: string }[] = [
+    { id: 'orders',       label: '📋 Import Orders' },
+    { id: 'projects',     label: '🗂 Import Projects' },
+    { id: 'descriptions', label: '📝 Import Order Descriptions' },
+    { id: 'governance',   label: '🛡 Import Governance' },
+  ];
+
   return (
     <div className="space-y-4">
-      <div className="flex gap-2">
-        {(['orders','governance'] as const).map(t => (
-          <button key={t} type="button" onClick={() => setImportType(t)}
+      <div className="flex flex-wrap gap-2">
+        {tabs.map(t => (
+          <button key={t.id} type="button" onClick={() => setImportType(t.id)}
             className={`px-4 py-1.5 rounded-lg text-[12.5px] font-medium transition-all
-              ${importType === t ? 'bg-[#1f2d45] text-[var(--text)]' : 'text-[var(--text-3)] hover:text-[var(--text-2)]'}`}>
-            {t === 'orders' ? '📋 Import Orders' : '🛡 Import Governance'}
+              ${importType === t.id ? 'bg-[#1f2d45] text-[var(--text)]' : 'text-[var(--text-3)] hover:text-[var(--text-2)]'}`}>
+            {t.label}
           </button>
         ))}
       </div>
-      {importType === 'orders'     && <SingleImport canImport={canImport} mode="orders"     />}
-      {importType === 'governance' && <SingleImport canImport={canImport} mode="governance" />}
+      <SingleImport canImport={canImport} mode={importType} />
     </div>
   );
 }
 
-function SingleImport({ canImport, mode }: { canImport: boolean; mode: 'orders' | 'governance' }) {
+function SingleImport({ canImport, mode }: { canImport: boolean; mode: ImportMode }) {
   const [dragging,  setDragging]  = useState(false);
   const [file,      setFile]      = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -348,7 +358,13 @@ function SingleImport({ canImport, mode }: { canImport: boolean; mode: 'orders' 
     try {
       const fd = new FormData();
       fd.append('file', file);
-      const endpoint = mode === 'governance' ? '/api/governance/import' : '/api/orders/import';
+      const endpointMap: Record<ImportMode, string> = {
+        orders:       '/api/orders/import',
+        governance:   '/api/governance/import',
+        projects:     '/api/projects/import',
+        descriptions: '/api/order-descriptions/import',
+      };
+      const endpoint = endpointMap[mode];
       const res  = await fetch(endpoint, { method: 'POST', body: fd });
       const json = await res.json();
       if (!res.ok && json.error) { setError(json.error); return; }
@@ -362,11 +378,21 @@ function SingleImport({ canImport, mode }: { canImport: boolean; mode: 'orders' 
 
   async function downloadTemplate() {
     try {
-      const endpoint = mode === 'governance' ? '/api/governance/template' : '/api/orders/template';
-      const filename  = mode === 'governance' ? 'PES-Governance-Import-Template.xlsx' : 'PES-Import-Template.xlsx';
-      const res = await fetch(endpoint);
+      const endpointMap: Record<ImportMode, string> = {
+        orders:       '/api/orders/template',
+        governance:   '/api/governance/template',
+        projects:     '/api/projects/template',
+        descriptions: '/api/order-descriptions/template',
+      };
+      const filenameMap: Record<ImportMode, string> = {
+        orders:       'DET-Orders-Import-Template.xlsx',
+        governance:   'DET-Governance-Import-Template.xlsx',
+        projects:     'DET-Projects-Import-Template.xlsx',
+        descriptions: 'DET-Order-Descriptions-Import-Template.xlsx',
+      };
+      const res = await fetch(endpointMap[mode]);
       if (!res.ok) { alert('Failed to download template'); return; }
-      await triggerDownload(res, filename);
+      await triggerDownload(res, filenameMap[mode]);
     } catch {
       alert('Failed to download template — please try again');
     }
@@ -509,8 +535,19 @@ function SingleImport({ canImport, mode }: { canImport: boolean; mode: 'orders' 
 }
 
 // ── Import result display ──────────────────────────────────────
-function ImportResultCard({ result, mode }: { result: ImportResult; mode: 'orders' | 'governance' }) {
+function ImportResultCard({ result, mode }: { result: ImportResult; mode: ImportMode }) {
+  const created = result.imported;
+  const updated = result.updated ?? 0;
   const allGood = result.skipped === 0 && result.insertErrors.length === 0;
+
+  // Per-mode metadata
+  const meta: Record<ImportMode, { viewHref: string; viewLabel: string; itemLabel: string }> = {
+    orders:       { viewHref: '/orders',       viewLabel: 'Orders',             itemLabel: 'orders'       },
+    governance:   { viewHref: '/governance',   viewLabel: 'Governance Items',   itemLabel: 'items'        },
+    projects:     { viewHref: '/projects',     viewLabel: 'Projects',           itemLabel: 'projects'     },
+    descriptions: { viewHref: '/orders',       viewLabel: 'Orders',             itemLabel: 'descriptions' },
+  };
+  const m = meta[mode];
 
   return (
     <div className={`pes-card p-5 ${allGood ? 'border-green-500/30 bg-green-500/5' : 'border-amber-500/30 bg-amber-500/5'}`}>
@@ -521,18 +558,19 @@ function ImportResultCard({ result, mode }: { result: ImportResult; mode: 'order
             Import Complete
           </div>
           <div className="text-[12px] text-[var(--text-3)]">
-            {result.imported} created · {result.skipped} skipped · {result.total} total rows processed
+            {created} created{updated > 0 ? ` · ${updated} updated` : ''} · {result.skipped} skipped · {result.total} total rows processed
           </div>
         </div>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-3 mb-4">
+      <div className={`grid ${updated > 0 ? 'grid-cols-4' : 'grid-cols-3'} gap-3 mb-4`}>
         {[
-          { label: 'Created',    value: result.imported, color: '#10b981' },
-          { label: 'Skipped',    value: result.skipped,  color: result.skipped > 0 ? '#f59e0b' : '#10b981' },
-          { label: 'Total Rows', value: result.total,    color: '#6b7280' },
-        ].map(s => (
+          { label: 'Created', value: created, color: '#10b981', show: true },
+          { label: 'Updated', value: updated, color: '#3b82f6', show: updated > 0 },
+          { label: 'Skipped', value: result.skipped, color: result.skipped > 0 ? '#f59e0b' : '#10b981', show: true },
+          { label: 'Total Rows', value: result.total, color: '#6b7280', show: true },
+        ].filter(s => s.show).map(s => (
           <div key={s.label} className="pes-card p-3 text-center">
             <div className="font-display font-bold text-xl" style={{ color: s.color }}>{s.value}</div>
             <div className="text-[10.5px] text-[var(--text-3)] uppercase tracking-wider mt-0.5">{s.label}</div>
@@ -561,17 +599,19 @@ function ImportResultCard({ result, mode }: { result: ImportResult; mode: 'order
       {result.insertErrors.length > 0 && (
         <div className="mt-3 space-y-1">
           <div className="text-[11.5px] font-semibold text-red-400">Database errors:</div>
-          {result.insertErrors.map((e, i) => (
-            <div key={i} className="text-[11.5px] text-red-300 bg-red-500/10 rounded px-3 py-1.5">{e}</div>
-          ))}
+          <div className="max-h-48 overflow-y-auto space-y-1">
+            {result.insertErrors.map((e, i) => (
+              <div key={i} className="text-[11.5px] text-red-300 bg-red-500/10 rounded px-3 py-1.5">{e}</div>
+            ))}
+          </div>
         </div>
       )}
 
-      {result.imported > 0 && (
+      {(created + updated) > 0 && (
         <div className="mt-4 pt-3 border-t border-[var(--border)]">
-          <Link href={mode === 'governance' ? '/governance' : '/orders'}>
+          <Link href={m.viewHref}>
             <button className="pes-btn-primary text-[12.5px]">
-              → View {mode === 'governance' ? 'Governance Items' : 'Orders'}
+              → View {m.viewLabel}
             </button>
           </Link>
         </div>

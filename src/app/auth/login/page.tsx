@@ -4,7 +4,7 @@ import { Suspense } from 'react';
 import { Metadata } from 'next';
 import LoginForm from './LoginForm';
 
-export const metadata: Metadata = { title: 'Sign in | DTC Enterprise Tracker' };
+export const metadata: Metadata = { title: 'Sign in | Digital Enterprise Tracker' };
 
 export default function LoginPage() {
   return (

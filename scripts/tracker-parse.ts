@@ -1,5 +1,5 @@
 // scripts/tracker-parse.ts
-// Reads the DTC Enterprise Tracker Excel workbook and turns it into clean records.
+// Reads the Digital Enterprise Tracker Excel workbook and turns it into clean records.
 // Pure functions only (no database), so the result can be checked with --dry-run.
 //
 // Sheets used:

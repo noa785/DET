@@ -57,7 +57,7 @@ export async function GET(req: NextRequest) {
 
   // Sheet 2: Instructions
   const instr = XLSX.utils.aoa_to_sheet([
-    ['DGCC PES — Bulk Update Template'],
+    ['DET — Bulk Update Template'],
     [''],
     ['Instructions:'],
     ['  1. Edit status, priority, % complete, dueDate, ragOverride, ownerEmail, or notes columns.'],

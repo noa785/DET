@@ -4,7 +4,7 @@ import { requireAuth } from '@/lib/auth/session';
 import { prisma } from '@/lib/prisma/client';
 import ProjectsClient from './ProjectsClient';
 
-export const metadata: Metadata = { title: 'Projects — DGCC PES' };
+export const metadata: Metadata = { title: 'Projects — DET' };
 
 export default async function ProjectsPage() {
   const user = await requireAuth();

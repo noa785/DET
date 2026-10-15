@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma/client';
 import { redirect } from 'next/navigation';
 import UsersClient from './UsersClient';
 
-export const metadata: Metadata = { title: 'Users & Roles - DGCC PES' };
+export const metadata: Metadata = { title: 'Users & Roles - DET' };
 
 export default async function UsersPage() {
   const user = await requireAuth();

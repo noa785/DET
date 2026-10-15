@@ -86,7 +86,7 @@ export async function GET(req: NextRequest) {
   const done      = tasks.filter(t => t.status === 'DONE').length;
 
   const summaryRows = [
-    ['DGCC PES — Governance Tasks Export'],
+    ['DET — Governance Tasks Export'],
     ['Generated:', new Date().toLocaleString('en-GB')],
     ['Total Tasks:', tasks.length],
     [],

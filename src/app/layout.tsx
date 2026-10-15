@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'DTC Enterprise Tracker',
+  title: 'Digital Enterprise Tracker',
   description: 'Institutional project and governance management platform',
   icons: {
     icon: [

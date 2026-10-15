@@ -24,7 +24,7 @@ export default function DashboardClient({ stats, statusDist, unitDist, overdueOr
       <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
         <div>
           <p style={{ fontSize: 11.5, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-3)', marginBottom: 6 }}>
-            DGCC Enterprise System
+            Digital Enterprise Tracker
           </p>
           <h1 style={{ fontSize: 26, fontWeight: 700, color: 'var(--text)', letterSpacing: '-0.03em', margin: 0, lineHeight: 1.1 }}>
             Good {now.getHours() < 12 ? 'morning' : now.getHours() < 17 ? 'afternoon' : 'evening'}, {userName.split(' ')[0]}

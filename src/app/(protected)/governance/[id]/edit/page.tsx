@@ -7,7 +7,7 @@ import GovItemForm from '../../_components/GovItemForm';
 
 export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
   const g = await prisma.governanceItem.findUnique({ where: { id: params.id }, select: { govCode: true } });
-  return { title: g ? `Edit ${g.govCode} — DGCC PES` : 'Edit Governance Item' };
+  return { title: g ? `Edit ${g.govCode} — DET` : 'Edit Governance Item' };
 }
 
 export default async function EditGovItemPage({ params }: { params: { id: string } }) {

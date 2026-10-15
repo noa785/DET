@@ -3,7 +3,7 @@ import { Metadata } from 'next';
 import { requireAuth } from '@/lib/auth/session';
 import { prisma } from '@/lib/prisma/client';
 
-export const metadata: Metadata = { title: 'Analytics — DGCC PES' };
+export const metadata: Metadata = { title: 'Analytics — DET' };
 
 export default async function AnalyticsPage() {
   await requireAuth();

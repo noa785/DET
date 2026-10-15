@@ -5,7 +5,7 @@ import { requireAuth } from '@/lib/auth/session';
 import { loadOrders, loadSystems } from '@/lib/det/server';
 import KpiClient from './KpiClient';
 
-export const metadata: Metadata = { title: 'Performance KPIs | DTC Enterprise Tracker' };
+export const metadata: Metadata = { title: 'Performance KPIs | Digital Enterprise Tracker' };
 
 export default async function KpisPage() {
   const user = await requireAuth();

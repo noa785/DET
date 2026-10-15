@@ -8,7 +8,7 @@ import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 import { DetMark } from '@/components/det/ui';
 import '@/styles/det.css';
 
-const TITLE = 'DTC Enterprise Tracker';
+const TITLE = 'Digital Enterprise Tracker';
 
 export default function LoginForm() {
   const router = useRouter();
@@ -175,7 +175,7 @@ export default function LoginForm() {
             <div className="card-in">
               <div className="glare" />
               <h1>Sign in</h1>
-              <p className="sub">to <b>DTC Enterprise Tracker</b></p>
+              <p className="sub">to <b>Digital Enterprise Tracker</b></p>
               {error && (
                 <div className="error show" role="alert" key={errKey}>
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M12 8v4M12 16h.01" /></svg>

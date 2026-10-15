@@ -4,7 +4,7 @@ import { requireAuth } from '@/lib/auth/session';
 import { prisma } from '@/lib/prisma/client';
 import WeeklyBriefsClient from './WeeklyBriefsClient';
 
-export const metadata: Metadata = { title: 'Weekly Briefs - DGCC PES' };
+export const metadata: Metadata = { title: 'Weekly Briefs - DET' };
 
 export default async function WeeklyBriefsPage() {
   const user = await requireAuth();

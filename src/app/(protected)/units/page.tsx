@@ -3,7 +3,7 @@ import { requireAuth, can } from '@/lib/auth/session';
 import { prisma } from '@/lib/prisma/client';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-export const metadata: Metadata = { title: 'Units - DGCC PES' };
+export const metadata: Metadata = { title: 'Units - DET' };
 export default async function UnitsPage() {
   const user = await requireAuth();
   if (!can(user, 'admin:units')) redirect('/dashboard');

@@ -94,7 +94,7 @@ async function generateExecutiveReport(filters: ReturnType<typeof parseFilters>)
   });
 
   const wb = new ExcelJS.Workbook();
-  wb.creator = "DGCC PES";
+  wb.creator = "DET";
   wb.created = new Date();
   const sheet = wb.addWorksheet("Executive Report");
 
@@ -144,7 +144,7 @@ async function generateUnitReport(filters: ReturnType<typeof parseFilters>) {
   });
 
   const wb = new ExcelJS.Workbook();
-  wb.creator = "DGCC PES";
+  wb.creator = "DET";
   const sheet = wb.addWorksheet("Unit Report");
 
   sheet.columns = [
@@ -195,7 +195,7 @@ async function generateGovernanceReport(filters: ReturnType<typeof parseFilters>
   });
 
   const wb = new ExcelJS.Workbook();
-  wb.creator = "DGCC PES";
+  wb.creator = "DET";
   const sheet = wb.addWorksheet("Governance Report");
 
   sheet.columns = [
@@ -246,7 +246,7 @@ async function generateOverdueReport(filters: ReturnType<typeof parseFilters>) {
   });
 
   const wb = new ExcelJS.Workbook();
-  wb.creator = "DGCC PES";
+  wb.creator = "DET";
   const sheet = wb.addWorksheet("Overdue Orders");
 
   sheet.columns = [
@@ -298,7 +298,7 @@ async function generateCriticalReport(filters: ReturnType<typeof parseFilters>) 
   });
 
   const wb = new ExcelJS.Workbook();
-  wb.creator = "DGCC PES";
+  wb.creator = "DET";
   const sheet = wb.addWorksheet("Critical Orders");
 
   sheet.columns = [
@@ -354,7 +354,7 @@ async function generateDueSoonReport(filters: ReturnType<typeof parseFilters>) {
   });
 
   const wb = new ExcelJS.Workbook();
-  wb.creator = "DGCC PES";
+  wb.creator = "DET";
   const sheet = wb.addWorksheet(`Due Within ${days} Days`);
 
   sheet.columns = [

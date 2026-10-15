@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma/client';
 import { redirect } from 'next/navigation';
 import OrderForm from '../_components/OrderForm';
 
-export const metadata: Metadata = { title: 'New Order — DGCC PES' };
+export const metadata: Metadata = { title: 'New Order — DET' };
 
 export default async function NewOrderPage() {
   const user = await requireAuth();

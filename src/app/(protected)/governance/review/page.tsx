@@ -7,7 +7,7 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import GovernanceReviewClient from './GovernanceReviewClient';
 
-export const metadata: Metadata = { title: 'Governance Review — DGCC PES' };
+export const metadata: Metadata = { title: 'Governance Review — DET' };
 
 export default async function GovernanceReviewPage() {
   const user = await requireAuth();

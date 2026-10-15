@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma/client';
 import { computeRAG, isOverdue } from '@/lib/business-logic/orders';
 import OrdersClient from './OrdersClient';
 
-export const metadata: Metadata = { title: 'Orders — DGCC PES' };
+export const metadata: Metadata = { title: 'Orders — DET' };
 
 export default async function OrdersPage({
   searchParams,

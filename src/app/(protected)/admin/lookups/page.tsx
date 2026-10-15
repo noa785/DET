@@ -4,7 +4,7 @@ import { requireAuth, can } from '@/lib/auth/session';
 import { prisma } from '@/lib/prisma/client';
 import { redirect } from 'next/navigation';
 
-export const metadata: Metadata = { title: 'Lookup Tables — DGCC PES' };
+export const metadata: Metadata = { title: 'Lookup Tables — DET' };
 
 export default async function LookupsPage() {
   const user = await requireAuth();

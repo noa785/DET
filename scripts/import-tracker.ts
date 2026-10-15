@@ -1,5 +1,5 @@
 // scripts/import-tracker.ts
-// Loads the DTC Enterprise Tracker Excel workbook into the database.
+// Loads the Digital Enterprise Tracker Excel workbook into the database.
 //
 //   npm run db:import -- --file "data/DGCC_Enterprise_Tracker.xlsx" --dry-run   (check only, writes nothing)
 //   npm run db:import -- --file "data/DGCC_Enterprise_Tracker.xlsx"             (import)

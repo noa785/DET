@@ -4,7 +4,7 @@ import { requireAuth, can } from '@/lib/auth/session';
 import { prisma } from '@/lib/prisma/client';
 import Link from 'next/link';
 
-export const metadata: Metadata = { title: 'Governance Tasks — DGCC PES' };
+export const metadata: Metadata = { title: 'Governance Tasks — DET' };
 
 const STATUS_C: Record<string, string> = {
   NOT_STARTED: '#6b7280', IN_PROGRESS: '#3b82f6', UNDER_REVIEW: '#f59e0b',

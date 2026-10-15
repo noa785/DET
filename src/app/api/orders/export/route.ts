@@ -160,7 +160,7 @@ function buildSummarySheet(orders: any[]): XLSX.WorkSheet {
   }
 
   const rows: any[] = [
-    ['DGCC PES — Orders Export Summary'],
+    ['DET — Orders Export Summary'],
     ['Generated:', new Date().toLocaleString('en-GB')],
     ['Total Orders:', orders.length],
     ['Avg. Completion:', orders.length ? `${Math.round(totalPct / orders.length)}%` : '—'],
@@ -199,7 +199,7 @@ function buildImportTemplate(): XLSX.WorkSheet {
   ];
 
   const instructions = [
-    ['DGCC PES — Import Template'],
+    ['DET — Import Template'],
     ['Instructions:'],
     ['  • Fields marked with * are required'],
     ['  • type: PROGRAM, PROJECT, DELIVERABLE, TASK, SUBTASK'],

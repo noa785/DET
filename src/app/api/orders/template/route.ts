@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
 
   // Sheet 2: Instructions
   const instr = [
-    ['DGCC PES — Orders Import Template'],[''],
+    ['DET — Orders Import Template'],[''],
     ['• Column name* is required. All others optional.'],
     ['• Remove the sample row before importing.'],
     ['• Dates: YYYY-MM-DD format.'],

@@ -82,7 +82,7 @@ export async function buildSectionWorkbook(section: SectionKey, generatedBy: str
   const wb = new ExcelJS.Workbook();
   wb.creator = generatedBy;
   wb.company = 'English Language Institute, Princess Nourah bint Abdulrahman University';
-  wb.title = `DTC Enterprise Tracker: ${sec.name}`;
+  wb.title = `Digital Enterprise Tracker: ${sec.name}`;
   wb.created = new Date();
 
   const now = new Date();
@@ -217,7 +217,7 @@ export async function buildSectionWorkbook(section: SectionKey, generatedBy: str
   const govOk = orders.filter(o => o.govStatus === 'APPROVED').length;
   const N = `Data!$N$2:$N$${LIMIT}`, L = `Data!$L$2:$L$${LIMIT}`, W = `Data!$W$2:$W$${LIMIT}`, A = `Data!$A$2:$A$${LIMIT}`, C = `Data!$C$2:$C$${LIMIT}`;
 
-  sum.mergeCells('B2:J2'); sum.getCell('B2').value = 'DTC Enterprise Tracker';
+  sum.mergeCells('B2:J2'); sum.getCell('B2').value = 'Digital Enterprise Tracker';
   sum.getCell('B2').font = { bold: true, size: 20, color: { argb: DARK } };
   sum.mergeCells('B3:J3'); sum.getCell('B3').value = `${sec.name}: orders export`;
   sum.getCell('B3').font = { bold: true, size: 13, color: { argb: TEAL } };

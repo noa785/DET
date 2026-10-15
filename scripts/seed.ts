@@ -77,7 +77,7 @@ const LOOKUP_VALUES = [
 ];
 
 async function main() {
-  console.log('🌱 Seeding DGCC PES database…');
+  console.log('🌱 Seeding DET database…');
 
   // --- Sequences ---
   await prisma.sequence.createMany({
@@ -135,7 +135,7 @@ async function main() {
     update: {},
     create: {
       code: 'P-2002',
-      name: 'DGCC Enterprise Tracker',
+      name: 'Digital Enterprise Tracker',
       unitId: dgccUnit?.id,
       phase: 'EXECUTION',
       startDate: new Date('2025-09-01'),

@@ -7,7 +7,7 @@ import OrderForm from '../../_components/OrderForm';
 
 export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
   const o = await prisma.order.findUnique({ where: { id: params.id }, select: { orderCode: true, name: true } });
-  return { title: o ? `Edit ${o.orderCode} — DGCC PES` : 'Edit Order' };
+  return { title: o ? `Edit ${o.orderCode} — DET` : 'Edit Order' };
 }
 
 export default async function EditOrderPage({

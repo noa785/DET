@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma/client';
 import { redirect } from 'next/navigation';
 import GovTaskForm from '../_components/GovTaskForm';
 
-export const metadata: Metadata = { title: 'New Governance Task — DGCC PES' };
+export const metadata: Metadata = { title: 'New Governance Task — DET' };
 
 export default async function NewGovTaskPage({
   searchParams,

@@ -4,7 +4,7 @@ import { requireAuth, can } from '@/lib/auth/session';
 import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/prisma/client';
 
-export const metadata: Metadata = { title: 'Audit Log — DGCC PES' };
+export const metadata: Metadata = { title: 'Audit Log — DET' };
 
 export default async function AuditLogPage({
   searchParams,

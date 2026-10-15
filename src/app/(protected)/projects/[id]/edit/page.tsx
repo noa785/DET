@@ -5,7 +5,7 @@ import { requireAuth } from '@/lib/auth/session';
 import { prisma } from '@/lib/prisma/client';
 import EditProjectForm from './EditProjectForm';
 
-export const metadata: Metadata = { title: 'Edit Project — DGCC PES' };
+export const metadata: Metadata = { title: 'Edit Project — DET' };
 
 export default async function EditProjectPage({ params }: { params: { id: string } }) {
   const user = await requireAuth();

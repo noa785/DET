@@ -4,7 +4,7 @@ import { requireAuth } from '@/lib/auth/session';
 import { prisma } from '@/lib/prisma/client';
 import Link from 'next/link';
 
-export const metadata: Metadata = { title: 'Projects — DGCC PES' };
+export const metadata: Metadata = { title: 'Projects — DET' };
 
 const PHASE_COLORS: Record<string, string> = {
   INITIATION: '#6b7280',

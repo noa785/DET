@@ -84,7 +84,7 @@ export async function GET(req: NextRequest) {
 
   // ── Sheet 2: Instructions ──────────────────────────────────────
   const instructions = [
-    ['DGCC PES — Orders Import Template'],
+    ['DET — Orders Import Template'],
     [''],
     ['INSTRUCTIONS:'],
     ['1. Fill in the "Orders Import" sheet. Row 1 is the header, Row 2+ are your data rows.'],

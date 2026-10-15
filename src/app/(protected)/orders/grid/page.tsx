@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma/client';
 import { computeRAG, isOverdue } from '@/lib/business-logic/orders';
 import GridPageClient from './GridPageClient';
 
-export const metadata: Metadata = { title: 'Grid Editor — DGCC PES' };
+export const metadata: Metadata = { title: 'Grid Editor — DET' };
 
 // Roles blocked from Grid Editor entirely
 const BLOCKED_ROLES = ['VIEWER', 'GOV_EDITOR', 'IMPORT_VIEWER'];

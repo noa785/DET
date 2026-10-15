@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma/client';
 import { redirect } from 'next/navigation';
 import UnitDashboardClient from './UnitDashboardClient';
 
-export const metadata: Metadata = { title: 'Unit Dashboard — DGCC PES' };
+export const metadata: Metadata = { title: 'Unit Dashboard — DET' };
 
 export default async function UnitDashboardPage({ params }: { params: { code: string } }) {
   const user = await requireAuth();

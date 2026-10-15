@@ -4,7 +4,7 @@ import { requireAuth, can } from '@/lib/auth/session';
 import { prisma } from '@/lib/prisma/client';
 import ImportExportClient from './ImportExportClient';
 
-export const metadata: Metadata = { title: 'Import / Export — DGCC PES' };
+export const metadata: Metadata = { title: 'Import / Export — DET' };
 
 export default async function ImportExportPage() {
   const user = await requireAuth();

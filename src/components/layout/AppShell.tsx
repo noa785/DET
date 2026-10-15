@@ -57,7 +57,7 @@ export default function AppShell({ user, counts = {}, children }: {
   const sec = SECTION_LIST.find(s => path.startsWith(`/work/${s.slug}`));
   const view = path.endsWith('/grid') ? 'Grid Editor' : path.endsWith('/new') ? 'Add Order' : 'All Orders';
   const crumbs = sec ? <>{sec.name} / <b>{view}</b></> : path.startsWith('/kpis') ? <b>Performance KPIs</b>
-    : path.startsWith('/admin/log') ? <>Admin / <b>Admin Log</b></> : <b>DTC Enterprise Tracker</b>;
+    : path.startsWith('/admin/log') ? <>Admin / <b>Admin Log</b></> : <b>Digital Enterprise Tracker</b>;
   const canExport = hasPermission(user.role, 'orders:export');
   const canAudit = hasPermission(user.role, 'audit:view');
 
@@ -83,7 +83,7 @@ export default function AppShell({ user, counts = {}, children }: {
       <aside className="side" aria-hidden={hidden || undefined} ref={el => { if (el) el.toggleAttribute('inert', hidden); }}>
         <div className="brand">
           <DetMark variant="dark" />
-          <div><b>DTC Enterprise Tracker</b><small>English Language Institute · PNU</small></div>
+          <div><b>Digital Enterprise Tracker</b><small>English Language Institute · PNU</small></div>
         </div>
         <nav className="nav">
           {SECTION_LIST.map((s, i) => {
@@ -147,7 +147,7 @@ export default function AppShell({ user, counts = {}, children }: {
         <footer className="foot">
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
             <img src="/brand/pnu-logo.svg" alt="PNU" width={26} height={26} />
-            DTC Enterprise Tracker · Digital Transformation Committee · ELI · PNU
+            Digital Enterprise Tracker · Digital Transformation Committee · ELI · PNU
           </span>
           <span>Designed &amp; developed by <b>Nora Aldossari</b> · 2026</span>
         </footer>

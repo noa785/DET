@@ -56,6 +56,19 @@ enum Priority {
   CRITICAL
 }
 
+// DET v2: the two work sections
+enum WorkSection {
+  SYSTEMS_ENGINEERING
+  AUTOMATION
+}
+
+// DET v2: one governance field per order, owned by its section
+enum GovSimpleStatus {
+  NOT_REQUIRED
+  PENDING
+  APPROVED
+}
+
 enum RAGStatus {
   RED
   AMBER
@@ -202,6 +215,13 @@ model Project {
   createdById String?
   createdBy   User?        @relation("ProjectCreatedBy", fields: [createdById], references: [id])
 
+  // DET v2: systems register (feeds the digital transformation indicator)
+  isSystem     Boolean     @default(false)
+  systemType   String?     // ADMINISTRATIVE | ACADEMIC
+  systemStatus String?     // LIVE | PILOT | IN_DEVELOPMENT | PLANNED
+  includeInKpi Boolean     @default(true)
+  link         String?
+
   // Relations
   orders      Order[]
 
@@ -296,6 +316,13 @@ model Order {
   govReviewRequired Boolean    @default(false)
   projectType      String?     // SYSTEM_BUILD | DATA_ANALYSIS | OTHER
 
+  // DET v2: simple tracker fields
+  section          WorkSection @default(SYSTEMS_ENGINEERING)
+  ownerName        String?     // free-text responsible (e.g. "Nora + Rawan")
+  govStatus        GovSimpleStatus @default(NOT_REQUIRED)
+  govNote          String?     @db.Text
+  sheetOrder       Int?        // row number in the tracker Excel, keeps lists in the sheet's order
+
   createdAt        DateTime    @default(now())
   updatedAt        DateTime    @updatedAt
   createdById      String?
@@ -318,6 +345,8 @@ model Order {
   @@index([priority])
   @@index([isDeleted])
   @@index([orderCode])
+  @@index([section])
+  @@index([sheetOrder])
   @@map("orders")
 }
 
@@ -519,6 +548,7 @@ model OrderDescription {
   relatedPolicies    String?
   requiredEvidence   String?  @db.Text
   risks              String?  @db.Text
+  nextSteps          String?  @db.Text
 
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt

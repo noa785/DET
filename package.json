@@ -1,7 +1,7 @@
 {
   "name": "pes-dgcc-enterprise",
   "version": "1.0.0",
-  "description": "DGCC Project & Enterprise System — Institutional multi-user tracker with governance, RBAC, audit logs",
+  "description": "DGCC Project & Enterprise System \u2014 Institutional multi-user tracker with governance, RBAC, audit logs",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -15,7 +15,8 @@
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
     "db:seed": "tsx scripts/seed.ts",
-    "supabase:types": "supabase gen types typescript --local > src/types/supabase.ts"
+    "supabase:types": "supabase gen types typescript --local > src/types/supabase.ts",
+    "db:import": "tsx scripts/import-tracker.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
@@ -40,7 +41,9 @@
     "sonner": "^1.5.0",
     "tailwind-merge": "^2.5.2",
     "xlsx": "^0.18.5",
-    "zod": "^3.23.8"
+    "zod": "^3.23.8",
+    "jspdf": "^2.5.2",
+    "jspdf-autotable": "^3.8.4"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",

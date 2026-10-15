@@ -1,387 +1,158 @@
-// src/components/layout/AppShell.tsx
 'use client';
+// src/components/layout/AppShell.tsx
+// DET v2 layout: sidebar with three sections (Systems Engineering, Automation, Performance KPIs),
+// plus an Admin group (Admin Log) for people allowed to see the log.
+// The previous layout is kept in AppShell.legacy.tsx.
 
-import { useState, useEffect } from 'react';
-import { usePathname } from 'next/navigation';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import type { AuthUser } from '@/types';
-import { can } from '@/lib/auth/permissions';
+import { usePathname, useRouter } from 'next/navigation';
+import { hasPermission, type AuthUser } from '@/types';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
-import NotificationBell from '@/components/NotificationBell';
-import { useRouter } from 'next/navigation';
+import { SECTION_LIST, type SectionKey } from '@/lib/det/shared';
+import { DetMark, Icon, ToastHost } from '@/components/det/ui';
+import '@/styles/det.css';
 
-// ── SVG Icons ─────────────────────────────────────────────────
-const Icons = {
-  dashboard:    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>,
-  orders:       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>,
-  upcoming:     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>,
-  grid:         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>,
-  projects:     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>,
-  governance:   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>,
-  govtasks:     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>,
-  briefs:       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>,
-  audit:        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>,
-  reports:      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>,
-  units:        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9,22 9,12 15,12 15,22"/></svg>,
-  users:        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>,
-  import:       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>,
-  sun:          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>,
-  moon:         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>,
-  logout:       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16,17 21,12 16,7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>,
-  chevronLeft:  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15,18 9,12 15,6"/></svg>,
-  chevronRight: <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9,18 15,12 9,6"/></svg>,
-  plus:         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>,
-};
-
-// ── Nav ────────────────────────────────────────────────────────
-const NAV = [
-  {
-    group: 'Overview',
-    items: [
-      { href: '/dashboard', icon: Icons.dashboard, label: 'Dashboard' },
-    ],
-  },
-  {
-    group: 'Work Tracker',
-    items: [
-      { href: '/orders',          icon: Icons.orders,   label: 'All Orders' },
-      { href: '/upcoming-orders', icon: Icons.upcoming, label: 'Upcoming Orders' },
-      { href: '/orders/grid',     icon: Icons.grid,     label: 'Grid Editor', badge: 'LIVE' },
-      { href: '/projects',        icon: Icons.projects, label: 'Projects' },
-    ],
-  },
-  {
-    group: 'Governance',
-    items: [
-      { href: '/governance/review', icon: Icons.governance, label: 'Gov. Review Dashboard', perm: 'governance:view' as const },
-      { href: '/gov-tasks',         icon: Icons.govtasks,   label: 'Governance Tasks' },
-    ],
-  },
-  {
-    group: 'Reports',
-    items: [
-      { href: '/weekly-briefs', icon: Icons.briefs,  label: 'Order Descriptions' },
-      { href: '/audit-log',     icon: Icons.audit,   label: 'Audit Log', perm: 'audit:view' as const },
-      { href: '/reports',       icon: Icons.reports, label: 'Reports Center' },
-    ],
-  },
-  {
-    group: 'Administration',
-    items: [
-      { href: '/units',         icon: Icons.units,  label: 'Units',           perm: 'admin:units' as const },
-      { href: '/admin/users',   icon: Icons.users,  label: 'Users & Roles',   perm: 'admin:users' as const },
-      { href: '/import-export', icon: Icons.import, label: 'Import / Export', perm: 'import:execute' as const },
-    ],
-  },
-];
-
-const ROLE_COLOR: Record<string, string> = {
-  SUPER_ADMIN: '#dc2626', TECH_ADMIN: '#dc2626', ADMIN: '#d97706',
-  GOVERNANCE_ADMIN: '#7c3aed', UNIT_MANAGER: '#2563eb', PROJECT_OWNER: '#0891b2',
-  EDITOR: '#059669', IMPORT_VIEWER: '#ea580c', GOV_EDITOR: '#7c3aed',
-  DATA_ANALYST: '#0284c7', VIEWER: '#6b7280',
-};
 const ROLE_LABEL: Record<string, string> = {
-  SUPER_ADMIN: 'Super Admin', TECH_ADMIN: 'Tech Admin', ADMIN: 'Admin',
-  GOVERNANCE_ADMIN: 'Gov. Admin', UNIT_MANAGER: 'Unit Manager', PROJECT_OWNER: 'Project Owner',
-  EDITOR: 'Editor', IMPORT_VIEWER: 'Read + Import', GOV_EDITOR: 'Gov. Editor',
-  DATA_ANALYST: 'Data Analyst', VIEWER: 'Viewer',
+  SUPER_ADMIN: 'Super Admin', ADMIN: 'Admin', GOVERNANCE_ADMIN: 'Governance Admin', UNIT_MANAGER: 'Unit Manager',
+  PROJECT_OWNER: 'Project Owner', EDITOR: 'Editor', VIEWER: 'Viewer', TECH_ADMIN: 'Tech Admin',
+  IMPORT_VIEWER: 'Import Viewer', GOV_EDITOR: 'Governance Editor', DATA_ANALYST: 'Data Analyst',
 };
 
-function useTheme() {
-  const [theme, setTheme] = useState<'dark' | 'light'>('light');
-  useEffect(() => {
-    const stored = localStorage.getItem('pes-theme') as 'dark' | 'light' | null;
-    const initial = stored ?? 'light';
-    setTheme(initial);
-    document.documentElement.setAttribute('data-theme', initial);
-  }, []);
-  function toggle() {
-    const next = theme === 'dark' ? 'light' : 'dark';
-    setTheme(next);
-    document.documentElement.setAttribute('data-theme', next);
-    localStorage.setItem('pes-theme', next);
-  }
-  return { theme, toggle };
-}
-
-export default function AppShell({ user, children }: { user: AuthUser; children: React.ReactNode }) {
-  const pathname = usePathname();
+export default function AppShell({ user, counts = {}, children }: {
+  user: AuthUser; counts?: Partial<Record<SectionKey, number>>; children: React.ReactNode;
+}) {
+  const path = usePathname() ?? '';
   const router = useRouter();
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const { theme, toggle: toggleTheme } = useTheme();
-  const supabase = createSupabaseBrowserClient();
+  const [open, setOpen] = useState(false);
+  useEffect(() => setOpen(false), [path]);
 
-  async function handleLogout() {
-    await supabase.auth.signOut();
+  // Hide or show the sidebar (computers); remembered on this computer
+  const [hidden, setHidden] = useState(false);
+  useEffect(() => { try { setHidden(localStorage.getItem('det-side-hidden') === '1'); } catch { /* storage blocked */ } }, []);
+  const toggleSide = () => setHidden(h => {
+    try { localStorage.setItem('det-side-hidden', h ? '0' : '1'); } catch { /* storage blocked */ }
+    return !h;
+  });
+
+  // Sidebar groups open and close like dropdowns. The group you are working in always opens,
+  // and the choice is remembered on this computer.
+  const here = SECTION_LIST.find(s => path.startsWith(`/work/${s.slug}`))?.key ?? (path.startsWith('/admin') ? 'ADMIN' : null);
+  const [groups, setGroups] = useState<Record<string, boolean>>(() => (here ? { [here]: true } : {}));
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('det-nav-groups') || '{}') as Record<string, boolean>;
+      setGroups(g => ({ ...saved, ...g }));
+    } catch { /* nothing saved */ }
+  }, []);
+  useEffect(() => { if (here) setGroups(g => (g[here] ? g : { ...g, [here]: true })); }, [here]);
+  const toggle = (k: string) => setGroups(g => {
+    const next = { ...g, [k]: !g[k] };
+    try { localStorage.setItem('det-nav-groups', JSON.stringify(next)); } catch { /* storage blocked */ }
+    return next;
+  });
+  // Closed groups are skipped by the keyboard and screen readers
+  const inert = useCallback((closed: boolean) => (el: HTMLDivElement | null) => { if (el) el.toggleAttribute('inert', closed); }, []);
+
+  const sec = SECTION_LIST.find(s => path.startsWith(`/work/${s.slug}`));
+  const view = path.endsWith('/grid') ? 'Grid Editor' : path.endsWith('/new') ? 'Add Order' : 'All Orders';
+  const crumbs = sec ? <>{sec.name} / <b>{view}</b></> : path.startsWith('/kpis') ? <b>Performance KPIs</b>
+    : path.startsWith('/admin/log') ? <>Admin / <b>Admin Log</b></> : <b>DTC Enterprise Tracker</b>;
+  const canExport = hasPermission(user.role, 'orders:export');
+  const canAudit = hasPermission(user.role, 'audit:view');
+
+  async function signOut() {
+    await fetch('/api/work/activity', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'LOGOUT' }) }).catch(() => null);
+    await createSupabaseBrowserClient().auth.signOut();
     router.push('/auth/login');
     router.refresh();
   }
-
-  const initials = user.initials ?? user.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
-  const roleColor = ROLE_COLOR[user.role] ?? '#6b7280';
+  const initials = user.initials || user.name.split(/\s+/).map(p => p[0]).slice(0, 2).join('').toUpperCase();
+  const item = (href: string, label: string, icon: string, extra?: React.ReactNode, cls = '') => (
+    <Link className={`item ${cls}${path === href ? ' active' : ''}`} href={href}>
+      <Icon name={icon} size={17} />{label}{extra}
+    </Link>
+  );
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)' }}>
-
-      {/* ── SIDEBAR (always dark navy — institutional brand) ─── */}
-      <aside style={{
-        position: 'fixed', left: 0, top: 0, bottom: 0, zIndex: 50,
-        width: sidebarOpen ? '240px' : '52px',
-        display: 'flex', flexDirection: 'column',
-        background: '#0F1F3D',
-        borderRight: '1px solid rgba(255,255,255,0.06)',
-        transition: 'width 0.2s ease',
-        boxShadow: '0 0 24px rgba(0,0,0,0.08)',
-      }}>
-
-        {/* Logo */}
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 10,
-          padding: '0 14px', height: 56,
-          borderBottom: '1px solid rgba(255,255,255,0.08)',
-          flexShrink: 0,
-        }}>
-          <div style={{
-            width: 30, height: 30, borderRadius: 7, flexShrink: 0,
-            background: '#7BB7E8',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontWeight: 700, fontSize: 11, color: '#0F1F3D',
-            letterSpacing: '0.02em',
-          }}>DG</div>
-          {sidebarOpen && (
-            <div style={{ flex: 1, overflow: 'hidden' }}>
-              <div style={{ fontSize: 12.5, fontWeight: 600, color: '#ffffff', letterSpacing: '-0.01em', whiteSpace: 'nowrap' }}>DGCC Enterprise</div>
-              <div style={{ fontSize: 9, color: '#7BB7E8', letterSpacing: '0.1em', textTransform: 'uppercase', marginTop: 1 }}>Digital Governance</div>
+    <div className={`det-app${open ? ' nav-open' : ''}${hidden ? ' side-hidden' : ''}`}>
+      <button type="button" className="side-toggle" onClick={toggleSide} aria-expanded={!hidden}
+        aria-label={hidden ? 'Show menu' : 'Hide menu'} title={hidden ? 'Show menu' : 'Hide menu'}>
+        <Icon name="chev" size={16} />
+      </button>
+      <aside className="side" aria-hidden={hidden || undefined} ref={el => { if (el) el.toggleAttribute('inert', hidden); }}>
+        <div className="brand">
+          <DetMark variant="dark" />
+          <div><b>DTC Enterprise Tracker</b><small>English Language Institute · PNU</small></div>
+        </div>
+        <nav className="nav">
+          {SECTION_LIST.map((s, i) => {
+            const isOpen = !!groups[s.key];
+            return (
+              <div className={`sec group${isOpen ? ' open' : ''}`} key={s.key}>
+                <button type="button" className="sec-h toggle" aria-expanded={isOpen} aria-controls={`nav-${s.slug}`} onClick={() => toggle(s.key)}>
+                  <span className="num" style={{ background: s.badge }}>{i + 1}</span>
+                  <span className="sec-name">{s.name}</span>
+                  <span className="sec-count" aria-label={`${counts[s.key] ?? 0} orders`}>{counts[s.key] ?? 0}</span>
+                  <Icon name="chev" size={15} />
+                </button>
+                <div className="sec-items" id={`nav-${s.slug}`} ref={inert(!isOpen)}>
+                  <div><div className="inner">
+                    {item(`/work/${s.slug}`, 'All Orders', 'orders', <span className="count">{counts[s.key] ?? 0}</span>)}
+                    {item(`/work/${s.slug}/grid`, 'Grid Editor', 'grid')}
+                    {item(`/work/${s.slug}/new`, 'Add Order', 'plus', null, 'add')}
+                    {canExport && (
+                      <a className="item" href={`/api/work/export?section=${s.slug}`} download title={`Download ${s.name} as an Excel file`}>
+                        <Icon name="xls" size={17} />Download Excel
+                      </a>
+                    )}
+                  </div></div>
+                </div>
+              </div>
+            );
+          })}
+          <div className="sec kpi-sec">
+            <Link className={`item${path.startsWith('/kpis') ? ' active' : ''}`} href="/kpis"><span className="num">3</span>Performance KPIs</Link>
+          </div>
+          {canAudit && (
+            <div className={`sec group admin-sec${groups.ADMIN ? ' open' : ''}`}>
+              <button type="button" className="sec-h toggle" aria-expanded={!!groups.ADMIN} aria-controls="nav-admin" onClick={() => toggle('ADMIN')}>
+                <span className="num"><Icon name="shield" size={12} /></span>
+                <span className="sec-name">Admin</span>
+                <Icon name="chev" size={15} />
+              </button>
+              <div className="sec-items" id="nav-admin" ref={inert(!groups.ADMIN)}>
+                <div><div className="inner">{item('/admin/log', 'Admin Log', 'log')}</div></div>
+              </div>
             </div>
           )}
-          <button onClick={() => setSidebarOpen(o => !o)} style={{
-            marginLeft: 'auto', flexShrink: 0, width: 26, height: 26,
-            borderRadius: 6, border: '1px solid rgba(123,183,232,0.35)',
-            background: 'rgba(123,183,232,0.10)', color: '#7BB7E8',
-            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            transition: 'all 0.15s',
-          }}
-          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(123,183,232,0.22)'; (e.currentTarget as HTMLElement).style.color = '#ffffff'; (e.currentTarget as HTMLElement).style.borderColor = '#7BB7E8'; }}
-          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(123,183,232,0.10)'; (e.currentTarget as HTMLElement).style.color = '#7BB7E8'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(123,183,232,0.35)'; }}
-          >
-            {sidebarOpen ? Icons.chevronLeft : Icons.chevronRight}
-          </button>
-        </div>
-
-        {/* User */}
-        <div style={{
-          borderBottom: '1px solid rgba(255,255,255,0.08)', flexShrink: 0,
-        }}>
-          <Link href="/profile" style={{ textDecoration: 'none' }}>
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: 9,
-              padding: '10px 12px', cursor: 'pointer',
-              transition: 'background 0.1s',
-            }}
-            onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.04)'}
-            onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}
-            >
-              <div style={{
-                width: 30, height: 30, borderRadius: '50%', flexShrink: 0,
-                background: roleColor + '25', border: `1.5px solid ${roleColor}66`,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 10, fontWeight: 700, color: '#fff',
-              }}>{initials}</div>
-              {sidebarOpen && (
-                <div style={{ overflow: 'hidden', flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: '#ffffff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.name}</div>
-                  <div style={{ fontSize: 10, color: '#7BB7E8', fontWeight: 500, marginTop: 1 }}>{ROLE_LABEL[user.role] ?? user.role}</div>
-                </div>
-              )}
-            </div>
-          </Link>
-        </div>
-
-        {/* Nav */}
-        <nav style={{ flex: 1, overflowY: 'auto', padding: '8px 8px 0', scrollbarWidth: 'none' }}>
-          {NAV.map(group => (
-            <div key={group.group} style={{ marginBottom: 4 }}>
-              {sidebarOpen && (
-                <div style={{
-                  fontSize: 9, fontWeight: 600, letterSpacing: '0.12em',
-                  textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)',
-                  padding: '12px 8px 6px',
-                }}>
-                  {group.group}
-                </div>
-              )}
-              {!sidebarOpen && group !== NAV[0] && (
-                <div style={{ height: 1, background: 'rgba(255,255,255,0.08)', margin: '6px 6px' }} />
-              )}
-              {group.items.map((item: any) => {
-                if (item.perm && !can(user, item.perm)) return null;
-                const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
-                return (
-                  <Link key={item.href} href={item.href}
-                    title={!sidebarOpen ? item.label : undefined}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 10,
-                      padding: '7.5px 10px', borderRadius: 6, fontSize: 12.5,
-                      fontWeight: isActive ? 500 : 400,
-                      color: isActive ? '#ffffff' : 'rgba(255,255,255,0.72)',
-                      background: isActive ? '#15294F' : 'transparent',
-                      boxShadow: isActive ? 'inset 3px 0 0 #7BB7E8' : 'none',
-                      marginBottom: 2, textDecoration: 'none',
-                      transition: 'all 0.12s',
-                      justifyContent: sidebarOpen ? 'flex-start' : 'center',
-                    }}
-                    onMouseEnter={e => { if (!isActive) { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.06)'; (e.currentTarget as HTMLElement).style.color = '#ffffff'; } }}
-                    onMouseLeave={e => { if (!isActive) { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.72)'; } }}
-                  >
-                    <span style={{ flexShrink: 0, opacity: isActive ? 1 : 0.85, display: 'flex' }}>{item.icon}</span>
-                    {sidebarOpen && (
-                      <>
-                        <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.label}</span>
-                        {item.badge && (
-                          <span style={{
-                            fontSize: 8.5, padding: '1px 6px', borderRadius: 4,
-                            background: '#7BB7E8', color: '#0F1F3D',
-                            fontWeight: 700, letterSpacing: '0.04em',
-                          }}>{item.badge}</span>
-                        )}
-                      </>
-                    )}
-                  </Link>
-                );
-              })}
-            </div>
-          ))}
         </nav>
-
-        {/* Developer Credit */}
-        {sidebarOpen && (
-          <div style={{
-            padding: '10px 14px 8px',
-            borderTop: '1px solid rgba(255,255,255,0.08)',
-            flexShrink: 0,
-          }}>
-            <div style={{ fontSize: 9.5, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.02em' }}>
-              Designed & developed by
-            </div>
-            <div style={{ fontSize: 10.5, fontWeight: 600, color: '#7BB7E8', letterSpacing: '0.01em' }}>
-              Nora Aldossari
-            </div>
-            <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)' }}>
-              DGCC · PNU · 2026
-            </div>
-          </div>
-        )}
-
-        {/* Bottom */}
-        <div style={{ padding: '6px 8px 10px', borderTop: '1px solid rgba(255,255,255,0.08)', flexShrink: 0 }}>
-          <button onClick={toggleTheme} title={theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 10, padding: '7px 10px',
-              borderRadius: 6, background: 'transparent', border: 'none', cursor: 'pointer',
-              color: 'rgba(255,255,255,0.6)', fontSize: 12.5, width: '100%', transition: 'all 0.1s',
-              justifyContent: sidebarOpen ? 'flex-start' : 'center',
-            }}
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.06)'; (e.currentTarget as HTMLElement).style.color = '#ffffff'; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.6)'; }}
-          >
-            <span style={{ display: 'flex', flexShrink: 0 }}>{theme === 'dark' ? Icons.sun : Icons.moon}</span>
-            {sidebarOpen && <span>{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>}
-          </button>
-          <button onClick={handleLogout} title={!sidebarOpen ? 'Sign Out' : undefined}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 10, padding: '7px 10px',
-              borderRadius: 6, background: 'transparent', border: 'none', cursor: 'pointer',
-              color: 'rgba(255,255,255,0.6)', fontSize: 12.5, width: '100%', transition: 'all 0.1s',
-              justifyContent: sidebarOpen ? 'flex-start' : 'center',
-            }}
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.06)'; (e.currentTarget as HTMLElement).style.color = '#ffffff'; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.6)'; }}
-          >
-            <span style={{ display: 'flex', flexShrink: 0 }}>{Icons.logout}</span>
-            {sidebarOpen && <span>Sign Out</span>}
+        <div className="me">
+          <div className="avatar">{initials}</div>
+          <div><b>{user.name}</b><small>{ROLE_LABEL[user.role] ?? user.role}</small></div>
+          <button className="out" onClick={signOut} title="Sign out" aria-label="Sign out" style={{ border: 'none', background: 'none', cursor: 'pointer' }}>
+            <Icon name="out" size={17} />
           </button>
         </div>
       </aside>
+      <div className="scrim" onClick={() => setOpen(false)} />
+      <div className="wm" aria-hidden="true" />
 
-      {/* ── MAIN ─────────────────────────────────────────────── */}
-      <main style={{
-        flex: 1, display: 'flex', flexDirection: 'column', minHeight: '100vh',
-        marginLeft: sidebarOpen ? '240px' : '52px',
-        transition: 'margin-left 0.2s ease',
-      }}>
-        {/* Topbar */}
-        <header style={{
-          position: 'sticky', top: 0, zIndex: 40, height: 56,
-          background: 'var(--surface)', borderBottom: '1px solid var(--border)',
-          display: 'flex', alignItems: 'center', padding: '0 24px', gap: 12,
-        }}>
-          <Breadcrumb pathname={pathname} />
-          <div style={{ flex: 1 }} />
-          <NotificationBell />
-          <Link href="/orders/new">
-            <button style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              padding: '8px 16px', borderRadius: 8, fontSize: 12.5, fontWeight: 500,
-              background: 'var(--accent)', color: '#fff', border: 'none', cursor: 'pointer',
-              transition: 'all 0.15s', letterSpacing: '0.01em',
-              boxShadow: '0 1px 2px rgba(27,58,107,0.2)',
-            }}
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--accent-2)'; (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 12px rgba(27,58,107,0.25)'; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'var(--accent)'; (e.currentTarget as HTMLElement).style.boxShadow = '0 1px 2px rgba(27,58,107,0.2)'; }}
-            >
-              {Icons.plus} New Order
-            </button>
-          </Link>
+      <div className="main">
+        <header className="top">
+          <button className="burger" onClick={() => setOpen(o => !o)} aria-label="Menu"><Icon name="menu" size={18} /></button>
+          <div className="crumbs">{crumbs}</div>
         </header>
-
-        {/* Content */}
-        <div style={{ flex: 1, padding: '24px 28px' }}>
-          {children}
-        </div>
-      </main>
-    </div>
-  );
-}
-
-function Breadcrumb({ pathname }: { pathname: string }) {
-  const LABELS: Record<string, string> = {
-    '/dashboard': 'Dashboard', '/orders': 'All Orders', '/orders/grid': 'Grid Editor',
-    '/orders/new': 'New Order', '/upcoming-orders': 'Upcoming Orders', '/projects': 'Projects',
-    '/governance/review': 'Gov. Review Dashboard', '/governance/new': 'New Governance Item',
-    '/gov-tasks': 'Governance Tasks', '/gov-tasks/new': 'New Gov. Task',
-    '/weekly-briefs': 'Order Descriptions', '/audit-log': 'Audit Log',
-    '/units': 'Units', '/admin/users': 'Users & Roles',
-    '/import-export': 'Import / Export', '/reports': 'Reports Center',
-  };
-  const Chevron = (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
-      stroke="var(--text-3)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-      style={{ flexShrink: 0, opacity: 0.7 }}>
-      <polyline points="9 18 15 12 9 6" />
-    </svg>
-  );
-  if (LABELS[pathname]) {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5 }}>
-        <Link href="/dashboard" style={{ color: 'var(--text-2)', fontWeight: 500, letterSpacing: '0.02em', textDecoration: 'none', cursor: 'pointer' }}>DGCC</Link>
-        {Chevron}
-        <span style={{ color: 'var(--text)', fontWeight: 600 }}>{LABELS[pathname]}</span>
+        <main className="page" key={path}>{children}</main>
+        <footer className="foot">
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
+            <img src="/brand/pnu-logo.svg" alt="PNU" width={26} height={26} />
+            DTC Enterprise Tracker · Digital Transformation Committee · ELI · PNU
+          </span>
+          <span>Designed &amp; developed by <b>Nora Aldossari</b> · 2026</span>
+        </footer>
       </div>
-    );
-  }
-  const segments = pathname.split('/').filter(Boolean);
-  let section = '', detail = '';
-  if (segments[0] === 'orders' && segments.length >= 2) { section = 'All Orders'; detail = segments[2] === 'edit' ? 'Edit Order' : 'Order Detail'; }
-  else if (segments[0] === 'governance' && segments.length >= 2) { section = 'Governance'; detail = segments[2] === 'edit' ? 'Edit Item' : 'Governance Item'; }
-  else if (segments[0] === 'gov-tasks' && segments.length >= 2) { section = 'Gov. Tasks'; detail = 'Task Detail'; }
-  else { detail = segments[segments.length - 1]?.replace(/-/g, ' ') ?? 'Page'; }
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5 }}>
-      <Link href="/dashboard" style={{ color: 'var(--text-2)', fontWeight: 500, textDecoration: 'none', cursor: 'pointer' }}>DGCC</Link>
-      {section && <>{Chevron}<span style={{ color: 'var(--text-2)' }}>{section}</span></>}
-      {Chevron}
-      <span style={{ color: 'var(--text)', fontWeight: 600, textTransform: 'capitalize' }}>{detail}</span>
+      <ToastHost />
     </div>
   );
 }

@@ -1,23 +1,15 @@
 // src/app/auth/login/page.tsx
 export const dynamic = 'force-dynamic';
+import { Suspense } from 'react';
 import { Metadata } from 'next';
 import LoginForm from './LoginForm';
 
-export const metadata: Metadata = {
-  title: 'Sign In — DGCC Enterprise System',
-};
+export const metadata: Metadata = { title: 'Sign in | DTC Enterprise Tracker' };
 
 export default function LoginPage() {
   return (
-    <div style={{
-      minHeight: '100vh',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      background: 'var(--bg)',
-      padding: '24px',
-    }}>
+    <Suspense fallback={<div style={{ minHeight: '100vh', background: '#062E2C' }} />}>
       <LoginForm />
-    </div>
+    </Suspense>
   );
 }

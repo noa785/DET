@@ -1,10 +1,10 @@
-// src/app/page.tsx — Root redirect
+// src/app/page.tsx: root redirect
 export const dynamic = 'force-dynamic';
 import { redirect } from 'next/navigation';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 export default async function RootPage() {
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
-  redirect(user ? '/dashboard' : '/auth/login');
+  redirect(user ? '/kpis' : '/auth/login');
 }

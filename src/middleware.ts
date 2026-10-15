@@ -6,6 +6,8 @@ import { createServerClient } from '@supabase/ssr';
 
 // Routes that require authentication
 const PROTECTED_ROUTES = [
+  '/kpis',
+  '/work',
   '/dashboard',
   '/orders',
   '/governance',
@@ -23,7 +25,7 @@ const PROTECTED_ROUTES = [
 const PUBLIC_ROUTES = ['/auth/login', '/auth/forgot-password'];
 
 // API routes that require auth
-const PROTECTED_API_ROUTES = ['/api/orders', '/api/governance', '/api/gov-tasks', '/api/changes', '/api/briefs', '/api/units', '/api/users', '/api/lookups', '/api/dashboard', '/api/import', '/api/audit'];
+const PROTECTED_API_ROUTES = ['/api/work', '/api/orders', '/api/governance', '/api/gov-tasks', '/api/changes', '/api/briefs', '/api/units', '/api/users', '/api/lookups', '/api/dashboard', '/api/import', '/api/audit'];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -67,13 +69,13 @@ export async function middleware(request: NextRequest) {
 
   // Redirect authenticated users away from login
   if (isPublicRoute && user) {
-    return NextResponse.redirect(new URL('/dashboard', request.url));
+    return NextResponse.redirect(new URL('/kpis', request.url));
   }
 
   // Redirect root to dashboard or login
   if (pathname === '/') {
     return NextResponse.redirect(
-      new URL(user ? '/dashboard' : '/auth/login', request.url)
+      new URL(user ? '/kpis' : '/auth/login', request.url)
     );
   }
 

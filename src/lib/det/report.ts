@@ -6,7 +6,7 @@
 //            orders, the work indicators per section, and the orders that need attention.
 // Built in the browser with jsPDF; the header image lives in /public/brand/report-header.png.
 
-import { AUTOMATION_TARGETS, BUCKETS, GOV, SECTIONS, SECTION_LIST, SYSTEM_STATUS, automationRate, fdate, isLate, nextTarget, pct, type DetOrder, type DetSystem, type SectionKey } from './shared';
+import { AUTOMATION_TARGETS, BUCKETS, GOV, SECTIONS, SECTION_LIST, SYSTEM_STATUS, automationRate, fdate, groupByProject, isLate, nextTarget, pct, type DetOrder, type DetSystem, type SectionKey } from './shared';
 
 export type ReportKind = 'summary' | 'detailed';
 
@@ -206,11 +206,28 @@ export async function downloadKpiReport(orders: DetOrder[], systems: DetSystem[]
     });
     y = lastY() + 9;
 
-    // 4. Orders that need attention: late, stuck, or waiting governance review
+    // 4. Projects: orders measured project by project, per section
+    const projRows = sections.flatMap(sec => groupByProject(orders.filter(o => o.section === sec.key)).map(g => {
+      const d = g.items.filter(o => o.bucket === 'DONE').length;
+      return [g.project, sec.name, g.items.length, `${pct(d, g.items.length)}% (${d})`, g.items.filter(o => isLate(o)).length, g.items.filter(o => o.gov === 'PENDING').length];
+    }));
+    if (projRows.length) {
+      room(30);
+      h2('4. Projects');
+      autoTable(doc, {
+        ...tableStyle, startY: y,
+        head: [['Project', 'Section', 'Orders', 'Done', 'Late', 'Waiting governance']],
+        body: projRows,
+        columnStyles: { 0: { cellWidth: 62, fontStyle: 'bold' }, 1: { cellWidth: 34 }, 2: { halign: 'center' }, 3: { halign: 'center' }, 4: { halign: 'center' }, 5: { halign: 'center' } },
+      });
+      y = lastY() + 9;
+    }
+
+    // 5. Orders that need attention: late, stuck, or waiting governance review
     const reasons = (o: DetOrder) => [isLate(o) && 'Late', o.bucket === 'STUCK' && 'Stuck', o.gov === 'PENDING' && GOV.PENDING.label].filter(Boolean).join(', ');
     const attention = orders.filter(o => reasons(o)).sort((p, q) => (p.due ?? '9999').localeCompare(q.due ?? '9999'));
     room(30);
-    h2('4. Needs attention');
+    h2(projRows.length ? '5. Needs attention' : '4. Needs attention');
     if (attention.length) {
       autoTable(doc, {
         ...tableStyle, startY: y,

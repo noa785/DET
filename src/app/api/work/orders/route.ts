@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { prisma } from '@/lib/prisma/client';
 import { requirePermission, isErrorResponse } from '@/lib/auth/session';
 import { audit } from '@/lib/audit/logger';
-import { nextOrderCode, toDetOrder, DET_ORDER_SELECT } from '@/lib/det/server';
+import { nextOrderCode, resolveProject, toDetOrder, DET_ORDER_SELECT } from '@/lib/det/server';
 import { canEditSection, SECTIONS } from '@/lib/det/shared';
 
 const CreateSchema = z.object({
@@ -14,6 +14,7 @@ const CreateSchema = z.object({
   name:      z.string().trim().min(1, 'Please write the order').max(500),
   ownerName: z.string().trim().max(200).optional().default(''),
   unitCode:  z.string().trim().max(20).optional().nullable(),
+  project:   z.string().trim().max(200).optional().nullable(),   // project code or name; a new name creates the project
   dueDate:   z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Please pick a due date'),
   points:    z.array(z.string().trim().max(1000)).max(100).optional().default([]),
   narrative: z.string().trim().max(10000).optional().default(''),
@@ -36,6 +37,7 @@ export async function POST(req: NextRequest) {
   }
   const unit = b.unitCode ? await prisma.unit.findUnique({ where: { code: b.unitCode }, select: { id: true } }) : null;
   const points = b.points.filter(Boolean);
+  const projectId = await resolveProject(b.project, b.section, user.id);
   const orderCode = await nextOrderCode(b.section);
 
   const order = await prisma.order.create({
@@ -45,6 +47,7 @@ export async function POST(req: NextRequest) {
       name: b.name,
       ownerName: b.ownerName || user.name,
       unitId: unit?.id ?? null,
+      projectId,
       dueDate: new Date(`${b.dueDate}T00:00:00Z`),
       status: 'NOT_STARTED',
       percentComplete: 0,

@@ -7,6 +7,7 @@ import { createServerClient } from '@supabase/ssr';
 // Routes that require authentication
 const PROTECTED_ROUTES = [
   '/kpis',
+  '/gov',
   '/work',
   '/dashboard',
   '/orders',

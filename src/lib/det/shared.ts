@@ -53,6 +53,8 @@ export type DetOrder = {
   owner: string;
   unitCode: string | null;
   unitName: string | null;
+  projectCode: string | null;
+  projectName: string | null;
   status: DbStatus;
   bucket: Bucket;
   progress: number;
@@ -146,6 +148,7 @@ export function nextTarget(now = new Date()) {
      TECH_ADMIN (Nora)          edits Systems Engineering, downloads Systems Engineering
      GOV_EDITOR (Bushra)        edits Automation,          downloads Automation
      IMPORT_VIEWER (Eman)       view only,                 downloads both sections
+     GOVERNANCE_ADMIN           governance officer: edits the Governance register, downloads both sections
      SUPER_ADMIN, ADMIN         edit and download both (fallback for administrators)          */
 const EDIT_BY_ROLE: Record<string, SectionKey[]> = {
   SUPER_ADMIN: ['SYSTEMS_ENGINEERING', 'AUTOMATION'],
@@ -159,8 +162,57 @@ const DOWNLOAD_BY_ROLE: Record<string, SectionKey[]> = {
   IMPORT_VIEWER: ['SYSTEMS_ENGINEERING', 'AUTOMATION'],
   TECH_ADMIN:    ['SYSTEMS_ENGINEERING'],
   GOV_EDITOR:    ['AUTOMATION'],
+  GOVERNANCE_ADMIN: ['SYSTEMS_ENGINEERING', 'AUTOMATION'],
 };
 export function editableSections(role: string): SectionKey[] { return EDIT_BY_ROLE[role] ?? []; }
 export function downloadableSections(role: string): SectionKey[] { return DOWNLOAD_BY_ROLE[role] ?? []; }
 export const canEditSection = (role: string, s: SectionKey) => editableSections(role).includes(s);
 export const canDownloadSection = (role: string, s: SectionKey) => downloadableSections(role).includes(s);
+
+/* ── Projects: every order belongs to one project of its section ──────────── */
+export type DetProject = { code: string; name: string; section: SectionKey | null };
+export const NO_PROJECT = 'No project';
+/** Orders grouped by project name (projects A to Z, orders without a project last), keeping each group's order. */
+export function groupByProject<T extends { projectName: string | null }>(items: T[]): { project: string; items: T[] }[] {
+  const map = new Map<string, T[]>();
+  for (const o of items) {
+    const k = o.projectName || NO_PROJECT;
+    if (!map.has(k)) map.set(k, []);
+    map.get(k)!.push(o);
+  }
+  return [...map.entries()]
+    .sort((a, b) => (a[0] === NO_PROJECT ? 1 : b[0] === NO_PROJECT ? -1 : a[0].localeCompare(b[0])))
+    .map(([project, list]) => ({ project, items: list }));
+}
+
+/* ── Governance register (projects and ELI units) ───────────────────────── */
+export type GovScope = 'PROJECT' | 'UNIT';
+export type GovItemStatus = 'PLANNED' | 'IN_REVIEW' | 'APPROVED' | 'NEEDS_UPDATE';
+export type GovItemType = 'POLICY' | 'PROCEDURE' | 'STANDARD' | 'REVIEW' | 'COMPLIANCE' | 'RISK' | 'OTHER';
+export const GOV_ITEM_STATUS: Record<GovItemStatus, { label: string; color: string }> = {
+  PLANNED:      { label: 'Planned',      color: '#93A3A1' },
+  IN_REVIEW:    { label: 'In review',    color: '#D48A0B' },
+  APPROVED:     { label: 'Approved',     color: '#1E9E6A' },
+  NEEDS_UPDATE: { label: 'Needs update', color: '#CC3D33' },
+};
+export const GOV_ITEM_STATUS_KEYS = Object.keys(GOV_ITEM_STATUS) as GovItemStatus[];
+export const GOV_ITEM_TYPE: Record<GovItemType, string> = {
+  POLICY: 'Policy', PROCEDURE: 'Procedure', STANDARD: 'Standard', REVIEW: 'Review',
+  COMPLIANCE: 'Compliance check', RISK: 'Risk', OTHER: 'Other',
+};
+export const GOV_ITEM_TYPE_KEYS = Object.keys(GOV_ITEM_TYPE) as GovItemType[];
+export const GOV_SCOPE: Record<GovScope, string> = { PROJECT: 'Project', UNIT: 'Unit' };
+export type DetGov = {
+  id: string; code: string; scope: GovScope;
+  projectCode: string | null; projectName: string | null; projectSection: SectionKey | null;
+  unitCode: string | null; unitName: string | null;
+  title: string; type: GovItemType; status: GovItemStatus; owner: string;
+  due: string | null; lastReview: string | null; nextReview: string | null;
+  evidence: string; notes: string; updatedAt: string;
+};
+/** A governance item is overdue when its next review date has passed. */
+export function govOverdue(g: Pick<DetGov, 'nextReview'>, today = todayISO()): boolean {
+  return !!g.nextReview && g.nextReview < today;
+}
+/** Who edits the governance register. */
+export const canEditGovernance = (role: string) => ['GOVERNANCE_ADMIN', 'SUPER_ADMIN', 'ADMIN'].includes(role);

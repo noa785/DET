@@ -3,13 +3,13 @@
 // description points, narrative, governance and a short "what changed" note.
 
 import { useEffect, useState } from 'react';
-import { BUCKETS, BUCKET_KEYS, SECTIONS, fdate, type Bucket, type DetOrder, type DetUnit, type GovStatus } from '@/lib/det/shared';
-import { BulletEditor, GovBox, Icon, Segmented, UnitSelect, api, toast } from './ui';
+import { BUCKETS, BUCKET_KEYS, SECTIONS, fdate, type Bucket, type DetOrder, type DetProject, type DetUnit, type GovStatus } from '@/lib/det/shared';
+import { BulletEditor, GovBox, Icon, ProjectSelect, Segmented, UnitSelect, api, toast } from './ui';
 
 type Log = { id: string; text: string; by: string; at: string };
 
-export default function OrderDrawer({ order, owners, units = [], readOnly = false, onClose, onSaved }: {
-  order: DetOrder | null; owners: string[]; units?: DetUnit[]; readOnly?: boolean; onClose: () => void; onSaved: (o: DetOrder) => void;
+export default function OrderDrawer({ order, owners, units = [], projects = [], readOnly = false, onClose, onSaved }: {
+  order: DetOrder | null; owners: string[]; units?: DetUnit[]; projects?: DetProject[]; readOnly?: boolean; onClose: () => void; onSaved: (o: DetOrder) => void;
 }) {
   const [f, setF] = useState<DetOrder | null>(order);
   const [note, setNote] = useState('');
@@ -41,7 +41,7 @@ export default function OrderDrawer({ order, owners, units = [], readOnly = fals
     setSaving(true); setErr('');
     try {
       const saved = await api<DetOrder>(`/api/work/orders/${order.id}`, 'PATCH', {
-        bucket: f.bucket, progress: f.progress, ownerName: f.owner, dueDate: f.due || null, unitCode: f.unitCode || null,
+        bucket: f.bucket, progress: f.progress, ownerName: f.owner, project: f.projectName || null, dueDate: f.due || null, unitCode: f.unitCode || null,
         points: f.points, narrative: f.narrative, govStatus: f.gov, govNote: f.govNote, note: note || undefined,
       });
       onSaved(saved); toast('Order updated'); onClose();
@@ -87,6 +87,11 @@ export default function OrderDrawer({ order, owners, units = [], readOnly = fals
                   <label htmlFor="d-due">Due date</label>
                   <input id="d-due" type="date" value={f.due ?? ''} onChange={e => set({ due: e.target.value || null })} />
                 </div>
+              </div>
+              <div className="f">
+                <label htmlFor="d-project">Project</label>
+                <ProjectSelect key={f.id} id="d-project" projects={projects} value={f.projectName ?? ''}
+                  onChange={name => set({ projectName: name || null, projectCode: projects.find(p => p.name === name)?.code ?? null })} />
               </div>
               <div className="f">
                 <label htmlFor="d-unit">Unit</label>

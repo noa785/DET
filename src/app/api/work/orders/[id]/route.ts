@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { prisma } from '@/lib/prisma/client';
 import { requirePermission, isErrorResponse } from '@/lib/auth/session';
 import { audit } from '@/lib/audit/logger';
-import { toDetOrder, DET_ORDER_SELECT } from '@/lib/det/server';
+import { resolveProject, toDetOrder, DET_ORDER_SELECT } from '@/lib/det/server';
 import { BUCKETS, GOV, SECTIONS, bucketOf, canEditSection, type Bucket, type DbStatus, type GovStatus, type SectionKey } from '@/lib/det/shared';
 
 const PatchSchema = z.object({
@@ -18,6 +18,7 @@ const PatchSchema = z.object({
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
   section:   z.enum(['SYSTEMS_ENGINEERING', 'AUTOMATION']).optional(),
   unitCode:  z.string().trim().max(20).nullable().optional(),
+  project:   z.string().trim().max(200).nullable().optional(),   // project code or name; a new name creates the project
   govStatus: z.enum(['NOT_REQUIRED', 'PENDING', 'APPROVED']).optional(),
   govNote:   z.string().trim().max(5000).optional(),
   points:    z.array(z.string().trim().max(1000)).max(100).optional(),
@@ -57,7 +58,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
   const existing = await prisma.order.findFirst({
     where: { id: params.id, isDeleted: false },
-    select: { id: true, orderCode: true, status: true, percentComplete: true, govStatus: true, section: true, dueDate: true, startDate: true, rescheduleCount: true, ownerName: true, unit: { select: { code: true } } },
+    select: { id: true, orderCode: true, status: true, percentComplete: true, govStatus: true, section: true, dueDate: true, startDate: true, rescheduleCount: true, ownerName: true, projectId: true, unit: { select: { code: true } } },
   });
   if (!existing) return NextResponse.json({ error: 'Order not found' }, { status: 404 });
   const fromSection = existing.section as SectionKey;
@@ -83,6 +84,14 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     if (b.unitCode && !unit) return NextResponse.json({ error: 'Unknown unit' }, { status: 400 });
     data.unitId = unit?.id ?? null;
     changes.push(`Unit: ${unit?.name ?? 'none'}`);
+  }
+
+  if (b.project !== undefined) {
+    const projectId = await resolveProject(b.project, (b.section ?? fromSection) as SectionKey, user.id);
+    if (projectId !== existing.projectId) {
+      data.projectId = projectId;
+      changes.push(`Project: ${b.project || 'none'}`);
+    }
   }
 
   // Status and progress move together: Done means 100%, 100% means Done.

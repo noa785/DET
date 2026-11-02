@@ -54,7 +54,7 @@ function grid(ws: ExcelJS.Worksheet, fromRow: number, toRow: number, cols: numbe
 
 export async function buildSectionWorkbook(section: SectionKey, generatedBy: string): Promise<{ buffer: Buffer; fileName: string; count: number }> {
   const sec = SECTIONS[section];
-  const [orders, units, systems] = await Promise.all([
+  const [ordersRaw, units, systems] = await Promise.all([
     prisma.order.findMany({
       where: { isDeleted: false, section },
       orderBy: [{ sheetOrder: { sort: 'asc', nulls: 'last' } }, { createdAt: 'asc' }, { orderCode: 'asc' }],
@@ -71,6 +71,12 @@ export async function buildSectionWorkbook(section: SectionKey, generatedBy: str
     prisma.unit.findMany({ where: { isActive: true }, orderBy: [{ unitIndex: { sort: 'asc', nulls: 'last' } }, { name: 'asc' }] }),
     loadSystems(),
   ]);
+  // Orders grouped by project (A to Z, no project last); the Excel order is kept inside each project.
+  const orders = ordersRaw.map((o, i) => ({ o, i })).sort((a, b) => {
+    const pa = a.o.project?.name ?? '', pb = b.o.project?.name ?? '';
+    if (pa !== pb) return !pa ? 1 : !pb ? -1 : pa.localeCompare(pb);
+    return a.i - b.i;
+  }).map(x => x.o);
   const ids = orders.map(o => o.id);
   const history = ids.length ? await prisma.auditLog.findMany({
     where: { orderId: { in: ids } },

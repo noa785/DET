@@ -2,18 +2,19 @@
 // All Orders: filter by status, unit and due date, search, click an order to update it.
 // Orders keep the tracker Excel's row order.
 
-import { useEffect, useMemo, useState } from 'react';
-import { BUCKETS, BUCKET_KEYS, SECTIONS, fdate, isLate, type Bucket, type DetOrder, type DetUnit, type SectionKey } from '@/lib/det/shared';
+import { Fragment, useEffect, useMemo, useState } from 'react';
+import { BUCKETS, BUCKET_KEYS, NO_PROJECT, SECTIONS, fdate, isLate, pct, type Bucket, type DetOrder, type DetProject, type DetUnit, type SectionKey } from '@/lib/det/shared';
 import { DateHeader, GovPill, Icon, NO_FILTERS, OrderFilters, PageHeader, Person, Progress, StatusPill, applyOrderFilters, type OrderFilterState } from '@/components/det/ui';
 import OrderDrawer from '@/components/det/OrderDrawer';
 import Link from 'next/link';
 
 const PAGE = 50;
 
-export default function OrdersClient({ section, initial, owners, units, openId, canEdit = true }: {
-  section: SectionKey; initial: DetOrder[]; owners: string[]; units: DetUnit[]; openId: string | null; canEdit?: boolean;
+export default function OrdersClient({ section, initial, owners, units, projects: initialProjects = [], openId, canEdit = true }: {
+  section: SectionKey; initial: DetOrder[]; owners: string[]; units: DetUnit[]; projects?: DetProject[]; openId: string | null; canEdit?: boolean;
 }) {
   const [orders, setOrders] = useState(initial);
+  const [projects, setProjects] = useState(initialProjects);
   const [filter, setFilter] = useState<'ALL' | Bucket>('ALL');
   const [q, setQ] = useState('');
   const [f, setF] = useState<OrderFilterState>(NO_FILTERS);
@@ -34,10 +35,20 @@ export default function OrdersClient({ section, initial, owners, units, openId, 
   const list = useMemo(() => {
     const s = q.trim().toLowerCase();
     return scoped.filter(o => (filter === 'ALL' || o.bucket === filter) &&
-      (!s || `${o.name} ${o.code} ${o.owner} ${o.unitCode ?? ''} ${o.unitName ?? ''}`.toLowerCase().includes(s)));
+      (!s || `${o.name} ${o.code} ${o.owner} ${o.unitCode ?? ''} ${o.unitName ?? ''} ${o.projectName ?? ''} ${o.projectCode ?? ''}`.toLowerCase().includes(s)));
   }, [scoped, filter, q]);
   const shown = list.slice(0, page * PAGE);
   const count = (b: Bucket) => scoped.filter(o => o.bucket === b).length;
+  // Group header rows when the list is shown by project
+  const byProject = f.sort === 'project';
+  const groupStats = useMemo(() => {
+    const m = new Map<string, { n: number; done: number }>();
+    for (const o of list) {
+      const k = o.projectName || NO_PROJECT, g = m.get(k) ?? { n: 0, done: 0 };
+      g.n++; if (o.bucket === 'DONE') g.done++; m.set(k, g);
+    }
+    return m;
+  }, [list]);
 
   return (
     <>
@@ -55,11 +66,23 @@ export default function OrdersClient({ section, initial, owners, units, openId, 
         <OrderFilters orders={orders} units={units} value={f} onChange={setF} shown={list.length} />
         <div className="tbl-wrap">
           <table>
-            <thead><tr><th>Order</th><th>Unit</th><th>Responsible</th><th>Status</th><th>Progress</th><th><DateHeader field="start" value={f} onChange={setF} /></th><th><DateHeader field="due" value={f} onChange={setF} /></th><th>Governance</th></tr></thead>
+            <thead><tr><th>Order</th><th>Project</th><th>Unit</th><th>Responsible</th><th>Status</th><th>Progress</th><th><DateHeader field="start" value={f} onChange={setF} /></th><th><DateHeader field="due" value={f} onChange={setF} /></th><th>Governance</th></tr></thead>
             <tbody>
-              {shown.map(o => (
-                <tr key={o.id} className={`click${flash === o.id ? ' new' : ''}`} onClick={() => setOpenOrder(o)}>
+              {shown.map((o, i) => {
+                const k = o.projectName || NO_PROJECT;
+                const head = byProject && (i === 0 || (shown[i - 1].projectName || NO_PROJECT) !== k);
+                const g = groupStats.get(k);
+                return (
+                <Fragment key={o.id}>
+                {head && (
+                  <tr className="proj-row"><td colSpan={9}>
+                    <Icon name="folder" size={15} /><b>{k}</b>{o.projectCode && <span className="t-code">{o.projectCode}</span>}
+                    {g && <span className="muted">{g.n} order{g.n === 1 ? '' : 's'} · {pct(g.done, g.n)}% done</span>}
+                  </td></tr>
+                )}
+                <tr className={`click${flash === o.id ? ' new' : ''}`} onClick={() => setOpenOrder(o)}>
                   <td><div className="t-name">{o.name}</div><div className="t-code">{o.code}</div></td>
+                  <td>{o.projectName ? <span className="t-unit proj" title={o.projectName}>{o.projectName}</span> : <span className="muted">-</span>}</td>
                   <td>{o.unitCode ? <><span className="unit-tag" style={{ marginLeft: 0 }}>{o.unitCode}</span><span className="t-unit" title={o.unitName ?? undefined}>{o.unitName}</span></> : <span className="muted">-</span>}</td>
                   <td><Person name={o.owner} /></td>
                   <td><StatusPill bucket={o.bucket} /></td>
@@ -68,9 +91,11 @@ export default function OrdersClient({ section, initial, owners, units, openId, 
                   <td className={isLate(o) ? 'over' : ''} style={{ whiteSpace: 'nowrap' }}>{fdate(o.due)}{isLate(o) ? ' · late' : ''}</td>
                   <td><GovPill gov={o.gov} /></td>
                 </tr>
-              ))}
+                </Fragment>
+                );
+              })}
               {!shown.length && (
-                <tr><td colSpan={8}><div className="empty">
+                <tr><td colSpan={9}><div className="empty">
                   <b>{orders.length ? 'No orders match' : 'No orders here yet'}</b>
                   {orders.length ? 'Try another filter or search, or clear the filters.' : canEdit ? <>Use <Link href={`/work/${SECTIONS[section].slug}/new`} className="link">Add Order</Link> to create the first one.</> : 'This section has no orders yet.'}
                 </div></td></tr>
@@ -85,8 +110,8 @@ export default function OrdersClient({ section, initial, owners, units, openId, 
           </div>
         )}
       </div>
-      <OrderDrawer order={openOrder} owners={owners} units={units} readOnly={!canEdit} onClose={() => setOpenOrder(null)}
-        onSaved={o => setOrders(prev => (o.section === section ? prev.map(x => (x.id === o.id ? o : x)) : prev.filter(x => x.id !== o.id)))} />
+      <OrderDrawer order={openOrder} owners={owners} units={units} projects={projects} readOnly={!canEdit} onClose={() => setOpenOrder(null)}
+        onSaved={o => { if (o.projectName && o.projectCode && !projects.some(p => p.name === o.projectName)) setProjects(prev => [...prev, { code: o.projectCode!, name: o.projectName!, section: o.section }]); setOrders(prev => (o.section === section ? prev.map(x => (x.id === o.id ? o : x)) : prev.filter(x => x.id !== o.id))); }} />
     </>
   );
 }

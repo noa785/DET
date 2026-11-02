@@ -196,6 +196,7 @@ model Unit {
   briefs      WeeklyBrief[]
 
   @@map("units")
+  detGovItems DetGovItem[]
 }
 
 model Project {
@@ -221,6 +222,11 @@ model Project {
   systemStatus String?     // LIVE | PILOT | IN_DEVELOPMENT | PLANNED
   includeInKpi Boolean     @default(true)
   link         String?
+
+  // DET v3: each project belongs to one work section (Systems Engineering or Automation)
+  section      WorkSection?
+
+  detGovItems  DetGovItem[]
 
   // Relations
   orders      Order[]
@@ -890,4 +896,36 @@ model UpcomingOrder {
   updatedAt     DateTime  @updatedAt
 
   @@map("upcoming_orders")
+}
+
+// ============================================================
+// DET v3: GOVERNANCE REGISTER (projects and ELI units)
+// Filled by the governance officer in DET or in her Google Sheet.
+// ============================================================
+
+model DetGovItem {
+  id           String    @id @default(cuid())
+  code         String    @unique            // GV-0001
+  scope        String                       // PROJECT | UNIT
+  projectId    String?
+  project      Project?  @relation(fields: [projectId], references: [id])
+  unitId       String?
+  unit         Unit?     @relation(fields: [unitId], references: [id])
+  title        String
+  type         String    @default("OTHER")  // POLICY | PROCEDURE | STANDARD | REVIEW | COMPLIANCE | RISK | OTHER
+  status       String    @default("PLANNED")// PLANNED | IN_REVIEW | APPROVED | NEEDS_UPDATE
+  ownerName    String?
+  dueDate      DateTime?
+  lastReview   DateTime?
+  nextReview   DateTime?
+  evidenceLink String?
+  notes        String?   @db.Text
+  isDeleted    Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([scope])
+  @@index([unitId])
+  @@index([projectId])
+  @@map("det_governance_items")
 }

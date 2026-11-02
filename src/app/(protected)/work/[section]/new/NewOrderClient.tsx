@@ -4,17 +4,18 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { SECTIONS, SECTION_LIST, type DetUnit, type GovStatus, type SectionKey, type DetOrder } from '@/lib/det/shared';
-import { BulletEditor, GovBox, Icon, PageHeader, UnitSelect, api, sectionIcon, toast } from '@/components/det/ui';
+import { SECTIONS, SECTION_LIST, type DetProject, type DetUnit, type GovStatus, type SectionKey, type DetOrder } from '@/lib/det/shared';
+import { BulletEditor, GovBox, Icon, PageHeader, ProjectSelect, UnitSelect, api, sectionIcon, toast } from '@/components/det/ui';
 
-export default function NewOrderClient({ section, owners, units, me }: {
-  section: SectionKey; owners: string[]; units: DetUnit[]; me: string;
+export default function NewOrderClient({ section, sections, owners, units, projects, me }: {
+  section: SectionKey; sections: SectionKey[]; owners: string[]; units: DetUnit[]; projects: DetProject[]; me: string;
 }) {
   const router = useRouter();
   const [sec, setSec] = useState<SectionKey>(section);
   const [name, setName] = useState('');
   const [owner, setOwner] = useState(me);
   const [unit, setUnit] = useState('');
+  const [project, setProject] = useState('');
   const [due, setDue] = useState('');
   const [points, setPoints] = useState<string[]>(['']);
   const [showNarr, setShowNarr] = useState(false);
@@ -33,7 +34,7 @@ export default function NewOrderClient({ section, owners, units, me }: {
     setSaving(true);
     try {
       const o = await api<DetOrder>('/api/work/orders', 'POST', {
-        section: sec, name, ownerName: owner, unitCode: unit || null, dueDate: due,
+        section: sec, name, ownerName: owner, unitCode: unit || null, project: project || null, dueDate: due,
         points: points.map(p => p.trim()).filter(Boolean), narrative, govStatus: gov, govNote,
       });
       toast(`Order saved in ${s.name}`);
@@ -51,8 +52,8 @@ export default function NewOrderClient({ section, owners, units, me }: {
           <div className="f">
             <label>Section</label><div className="hint">Where will this order be saved?</div>
             <div className="secpick">
-              {SECTION_LIST.map(x => (
-                <button key={x.key} type="button" className={x.key === sec ? 'on' : ''} style={{ ['--c' as string]: x.color }} onClick={() => setSec(x.key)}>
+              {SECTION_LIST.filter(x => sections.includes(x.key)).map(x => (
+                <button key={x.key} type="button" className={x.key === sec ? 'on' : ''} style={{ ['--c' as string]: x.color }} onClick={() => { setSec(x.key); setProject(''); }}>
                   <span className="sp-ic"><Icon name={sectionIcon(x.key)} size={20} /></span>
                   <span className="sp-t"><b>{x.name}</b><small>{x.hint}</small></span>
                   <span className="sp-check"><Icon name="check" size={16} /></span>
@@ -65,6 +66,11 @@ export default function NewOrderClient({ section, owners, units, me }: {
             <label htmlFor="n-name">Order</label>
             <input id="n-name" autoFocus autoComplete="off" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Automatic weekly attendance report" />
             <div className="err">Please write the order.</div>
+          </div>
+
+          <div className="f">
+            <label htmlFor="n-project">Project</label><div className="hint">Orders are grouped and measured by project.</div>
+            <ProjectSelect key={sec} id="n-project" projects={projects.filter(p => p.section === sec)} value={project} onChange={setProject} />
           </div>
 
           <div className="three-col">

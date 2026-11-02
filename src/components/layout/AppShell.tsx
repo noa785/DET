@@ -14,9 +14,9 @@ import { DetMark, Icon, ToastHost } from '@/components/det/ui';
 import '@/styles/det.css';
 
 const ROLE_LABEL: Record<string, string> = {
-  SUPER_ADMIN: 'Super Admin', ADMIN: 'Admin', GOVERNANCE_ADMIN: 'Governance Admin', UNIT_MANAGER: 'Unit Manager',
-  PROJECT_OWNER: 'Project Owner', EDITOR: 'Editor', VIEWER: 'Viewer', TECH_ADMIN: 'Tech Admin',
-  IMPORT_VIEWER: 'Import Viewer', GOV_EDITOR: 'Governance Editor', DATA_ANALYST: 'Data Analyst',
+  SUPER_ADMIN: 'Super Admin', ADMIN: 'Admin', GOVERNANCE_ADMIN: 'Governance Officer', UNIT_MANAGER: 'Unit Manager',
+  PROJECT_OWNER: 'Project Owner', EDITOR: 'Editor', VIEWER: 'Viewer', TECH_ADMIN: 'Systems Engineering',
+  IMPORT_VIEWER: 'Committee Chair', GOV_EDITOR: 'Automation', DATA_ANALYST: 'Data Analyst',
 };
 
 export default function AppShell({ user, counts = {}, children }: {
@@ -57,7 +57,7 @@ export default function AppShell({ user, counts = {}, children }: {
   const sec = SECTION_LIST.find(s => path.startsWith(`/work/${s.slug}`));
   const view = path.endsWith('/grid') ? 'Grid Editor' : path.endsWith('/new') ? 'Add Order' : 'All Orders';
   const crumbs = sec ? <>{sec.name} / <b>{view}</b></> : path.startsWith('/kpis') ? <b>Performance KPIs</b>
-    : path.startsWith('/admin/log') ? <>Admin / <b>Admin Log</b></> : <b>Digital Enterprise Tracker</b>;
+    : path.startsWith('/admin/log') ? <>Admin / <b>Admin Log</b></> : path.startsWith('/gov') ? <b>Governance register</b> : <b>Digital Enterprise Tracker</b>;
   const canAudit = hasPermission(user.role, 'audit:view');
 
   async function signOut() {
@@ -111,7 +111,10 @@ export default function AppShell({ user, counts = {}, children }: {
             );
           })}
           <div className="sec kpi-sec">
-            <Link className={`item${path.startsWith('/kpis') ? ' active' : ''}`} href="/kpis"><span className="num">3</span>Performance KPIs</Link>
+            <Link className={`item${path.startsWith('/gov') ? ' active' : ''}`} href="/gov"><span className="num">3</span>Governance</Link>
+          </div>
+          <div className="sec kpi-sec">
+            <Link className={`item${path.startsWith('/kpis') ? ' active' : ''}`} href="/kpis"><span className="num">4</span>Performance KPIs</Link>
           </div>
           {canAudit && (
             <div className={`sec group admin-sec${groups.ADMIN ? ' open' : ''}`}>

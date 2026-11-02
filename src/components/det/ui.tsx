@@ -3,7 +3,7 @@
 // Small building blocks shared by the DET v2 pages.
 
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
-import { BUCKETS, GOV, SECTIONS, groupUnits, initials, personColor, type Bucket, type DetOrder, type DetUnit, type GovStatus, type SectionKey } from '@/lib/det/shared';
+import { BUCKETS, GOV, GOV_ITEM_STATUS, NO_PROJECT, SECTIONS, groupUnits, initials, personColor, type Bucket, type DetOrder, type DetProject, type DetUnit, type GovItemStatus, type GovStatus, type SectionKey } from '@/lib/det/shared';
 
 /* ── Icons ─────────────────────────────────────────────── */
 const paths: Record<string, ReactNode> = {
@@ -24,6 +24,9 @@ const paths: Record<string, ReactNode> = {
   log: <><path d="M12 8v4l3 2" /><circle cx="12" cy="12" r="9" /></>,
   download: <path d="M12 3v12M7 10l5 5 5-5M5 21h14" />,
   chev: <path d="M6 9l6 6 6-6" />,
+  folder: <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />,
+  gov: <><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /><path d="M9 12l2 2 4-4" /></>,
+  sheet: <><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 9h18M3 15h18M9 3v18" /></>,
 };
 export function Icon({ name, size = 16 }: { name: keyof typeof paths | string; size?: number }) {
   return (
@@ -223,17 +226,27 @@ export function UnitSelect({ id, units, value, onChange, emptyLabel = 'None', cl
 }
 
 /* ── Filters by unit and due date (All Orders and Grid Editor) ── */
-export type OrderSort = 'sheet' | 'newest' | 'oldest' | 'start-newest' | 'start-oldest';
-export type OrderFilterState = { unit: string; from: string; to: string; sort: OrderSort };
-export const NO_FILTERS: OrderFilterState = { unit: '', from: '', to: '', sort: 'sheet' };
+export type OrderSort = 'project' | 'sheet' | 'newest' | 'oldest' | 'start-newest' | 'start-oldest';
+export type OrderFilterState = { unit: string; project: string; from: string; to: string; sort: OrderSort };
+/** Default view: orders grouped by project. */
+export const NO_FILTERS: OrderFilterState = { unit: '', project: '', from: '', to: '', sort: 'project' };
 /** Filter by unit and due date, then sort: Excel order (as loaded), or by due date either way.
  *  Orders without a due date stay at the end; ties keep the Excel order. */
 export function applyOrderFilters(orders: DetOrder[], f: OrderFilterState): DetOrder[] {
   const list = orders.filter(o =>
     (!f.unit || o.unitCode === f.unit) &&
+    (!f.project || (o.projectName || NO_PROJECT) === f.project) &&
     (!f.from || (!!o.due && o.due >= f.from)) &&
     (!f.to || (!!o.due && o.due <= f.to)));
   if (f.sort === 'sheet') return list;
+  if (f.sort === 'project') {
+    // Projects A to Z, orders without a project last; inside a project the Excel order is kept.
+    return list.map((o, i) => ({ o, i })).sort((a, b) => {
+      const pa = a.o.projectName, pb = b.o.projectName;
+      if (pa !== pb) return !pa ? 1 : !pb ? -1 : pa.localeCompare(pb);
+      return a.i - b.i;
+    }).map(x => x.o);
+  }
   const dir = f.sort === 'newest' || f.sort === 'start-newest' ? -1 : 1;
   const key = (o: DetOrder) => (f.sort.startsWith('start') ? o.start : o.due);
   return list
@@ -254,15 +267,22 @@ export function OrderFilters({ orders, units, value, onChange, shown }: {
     const extra = [...codes].filter(c => !known.some(u => u.code === c)).map(c => ({ code: c as string, name: c as string }));
     return [...known, ...extra];
   }, [orders, units]);
-  const active = !!(value.unit || value.from || value.to || value.sort !== 'sheet');
+  const projects = useMemo(() => [...new Set(orders.map(o => o.projectName || NO_PROJECT))]
+    .sort((a, b) => (a === NO_PROJECT ? 1 : b === NO_PROJECT ? -1 : a.localeCompare(b))), [orders]);
+  const active = !!(value.unit || value.project || value.from || value.to || value.sort !== 'project');
   return (
     <div className="filter-row">
       <span className="fr-label"><Icon name="filter" size={14} />Filter</span>
+      <select className="fr-unit" value={value.project} onChange={e => onChange({ ...value, project: e.target.value })} aria-label="Project">
+        <option value="">All projects</option>
+        {projects.map(p => <option key={p} value={p}>{p}</option>)}
+      </select>
       <UnitSelect className="fr-unit" units={used} value={value.unit} emptyLabel="All units" onChange={unit => onChange({ ...value, unit })} />
       <label className="fr-date">Due from<input type="date" value={value.from} max={value.to || undefined} onChange={e => onChange({ ...value, from: e.target.value })} /></label>
       <label className="fr-date">to<input type="date" value={value.to} min={value.from || undefined} onChange={e => onChange({ ...value, to: e.target.value })} /></label>
       <label className="fr-date">Sort
         <select value={value.sort} onChange={e => onChange({ ...value, sort: e.target.value as OrderSort })}>
+          <option value="project">By project</option>
           <option value="sheet">Excel order</option>
           <option value="newest">Newest due date first</option>
           <option value="oldest">Oldest due date first</option>
@@ -281,7 +301,7 @@ export function DateHeader({ field, value, onChange }: { field: 'due' | 'start';
   const oldest: OrderSort = field === 'start' ? 'start-oldest' : 'oldest';
   const newest: OrderSort = field === 'start' ? 'start-newest' : 'newest';
   const state = value.sort === oldest ? 'oldest' : value.sort === newest ? 'newest' : 'none';
-  const nextSort: OrderSort = state === 'none' ? oldest : state === 'oldest' ? newest : 'sheet';
+  const nextSort: OrderSort = state === 'none' ? oldest : state === 'oldest' ? newest : 'project';
   return (
     <button type="button" className={`th-sort${state !== 'none' ? ' on' : ''}`}
       title={state === 'oldest' ? 'Oldest first' : state === 'newest' ? 'Newest first' : 'Click to sort'}
@@ -294,3 +314,34 @@ export function DateHeader({ field, value, onChange }: { field: 'due' | 'start';
   );
 }
 export const DueDateHeader = (p: { value: OrderFilterState; onChange: (f: OrderFilterState) => void }) => <DateHeader field="due" {...p} />;
+
+/* ── Project dropdown with "new project" ───────────────── */
+export function ProjectSelect({ id, projects, value, onChange, className }: {
+  id?: string; projects: DetProject[]; value: string; onChange: (name: string) => void; className?: string;
+}) {
+  const known = projects.some(p => p.name === value);
+  const [typing, setTyping] = useState(!!value && !known);
+  if (typing) {
+    return (
+      <div className="proj-new">
+        <input id={id} className={className} autoFocus value={value} placeholder="New project name" onChange={e => onChange(e.target.value)} />
+        <button type="button" className="link-btn" onClick={() => { setTyping(false); onChange(''); }}>Choose from list</button>
+      </div>
+    );
+  }
+  return (
+    <select id={id} className={className} value={known ? value : ''} onChange={e => {
+      if (e.target.value === '__new') { setTyping(true); onChange(''); } else onChange(e.target.value);
+    }}>
+      <option value="">No project</option>
+      {projects.map(p => <option key={p.code} value={p.name}>{p.name} ({p.code})</option>)}
+      <option value="__new">+ New project…</option>
+    </select>
+  );
+}
+
+/* ── Governance status pill ────────────────────────────── */
+export function GovItemPill({ status }: { status: GovItemStatus }) {
+  const s = GOV_ITEM_STATUS[status] ?? GOV_ITEM_STATUS.PLANNED;
+  return <span className="pill" style={{ color: s.color, background: `${s.color}17` }}>{s.label}</span>;
+}

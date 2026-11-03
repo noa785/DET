@@ -324,3 +324,64 @@ export async function buildSectionWorkbook(section: SectionKey, generatedBy: str
   return { buffer, fileName: `DET_${sec.name.replace(/\s+/g, '_')}_${d}.xlsx`, count: orders.length };
 }
 
+
+/** Governance register as an Excel workbook: Summary + Governance items. */
+export async function buildGovernanceWorkbook(generatedBy: string): Promise<{ buffer: Buffer; fileName: string; count: number }> {
+  const { loadGovItems } = await import('./server');
+  const { GOV_ITEM_STATUS, GOV_ITEM_TYPE, GOV_SCOPE, govOverdue } = await import('./shared');
+  const items = await loadGovItems();
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'Digital Enterprise Tracker';
+  wb.created = new Date();
+
+  // Summary
+  const s = wb.addWorksheet('Summary', { views: [{ showGridLines: false }] });
+  s.columns = [{ width: 34 }, { width: 16 }];
+  s.getCell('A1').value = 'Governance register';
+  s.getCell('A1').font = { bold: true, size: 16, color: { argb: DARK } };
+  s.getCell('A2').value = `Downloaded by ${generatedBy} on ${new Date().toISOString().slice(0, 10)}`;
+  s.getCell('A2').font = { color: { argb: MUTED }, size: 10 };
+  const approved = items.filter(i => i.status === 'APPROVED').length;
+  const overdue = items.filter(i => govOverdue(i)).length;
+  const rows: [string, number][] = [
+    ['Governance items', items.length],
+    ['Project items', items.filter(i => i.scope === 'PROJECT').length],
+    ['Unit items', items.filter(i => i.scope === 'UNIT').length],
+    ['Approved', approved],
+    ['Reviews overdue', overdue],
+  ];
+  for (const k of Object.keys(GOV_ITEM_STATUS) as (keyof typeof GOV_ITEM_STATUS)[]) {
+    rows.push([`Status: ${GOV_ITEM_STATUS[k].label}`, items.filter(i => i.status === k).length]);
+  }
+  s.getCell('A4').value = 'Measure'; s.getCell('B4').value = 'Count';
+  header(s, 4, 2);
+  rows.forEach(([a, b], i) => { s.getCell(`A${5 + i}`).value = a; s.getCell(`B${5 + i}`).value = b; });
+  grid(s, 5, 4 + rows.length, 2);
+
+  // Items
+  const ws = wb.addWorksheet('Governance', { views: [{ state: 'frozen', ySplit: 1 }] });
+  const cols: [string, number][] = [
+    ['Item ID', 11], ['About', 10], ['Project or unit', 30], ['Governance item', 44], ['Type', 18], ['Owner', 20],
+    ['Status', 14], ['Due', 12], ['Last review', 12], ['Next review', 12], ['Evidence', 36], ['Notes', 40],
+  ];
+  ws.columns = cols.map(([h, w]) => ({ header: h, width: w }));
+  header(ws, 1, cols.length);
+  const d = (v: string | null) => (v ? new Date(`${v}T00:00:00Z`) : null);
+  for (const g of items) {
+    const where = g.scope === 'PROJECT'
+      ? [g.projectCode, g.projectName].filter(Boolean).join(' ')
+      : [g.unitCode, g.unitName].filter(Boolean).join(' ');
+    const r = ws.addRow([
+      g.code, GOV_SCOPE[g.scope], where, g.title, GOV_ITEM_TYPE[g.type], g.owner,
+      GOV_ITEM_STATUS[g.status].label, d(g.due), d(g.lastReview), d(g.nextReview), g.evidence, g.notes,
+    ]);
+    for (const c of [8, 9, 10]) r.getCell(c).numFmt = 'yyyy-mm-dd';
+    if (govOverdue(g)) r.getCell(10).font = { color: { argb: 'FFC0392B' }, bold: true };
+    if (g.status === 'APPROVED') r.getCell(7).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE3F4EC' } };
+  }
+  grid(ws, 2, items.length + 1, cols.length);
+  ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: cols.length } };
+
+  const buffer = Buffer.from(await wb.xlsx.writeBuffer());
+  return { buffer, fileName: `DET-Governance-${new Date().toISOString().slice(0, 10)}.xlsx`, count: items.length };
+}

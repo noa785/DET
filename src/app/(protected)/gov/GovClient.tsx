@@ -42,7 +42,10 @@ export default function GovClient({ initial, projects, units, owners, canEdit }:
   return (
     <>
       <PageHeader title="Governance register" sub="Governance of Systems Engineering and Automation projects, and of every ELI unit."
-        actions={canEdit ? <button className="btn primary" onClick={() => setOpen({ ...EMPTY })}><Icon name="plus" size={16} />Add item</button> : undefined} />
+        actions={<>
+          <a className="btn" href="/api/work/governance/export" download title="Download the governance register as an Excel file"><Icon name="xls" size={16} />Download Excel</a>
+          {canEdit && <button className="btn primary" onClick={() => setOpen({ ...EMPTY })}><Icon name="plus" size={16} />Add item</button>}
+        </>} />
       <div className="gov-chips">
         <div className="gov-chip"><b>{items.length}</b><span>Governance items</span></div>
         <div className="gov-chip"><b>{pct(approved, items.length)}%</b><span>Approved ({approved})</span></div>

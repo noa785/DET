@@ -37,7 +37,7 @@ export default function AppShell({ user, counts = {}, children }: {
 
   // Sidebar groups open and close like dropdowns. The group you are working in always opens,
   // and the choice is remembered on this computer.
-  const here = SECTION_LIST.find(s => path.startsWith(`/work/${s.slug}`))?.key ?? (path.startsWith('/admin') ? 'ADMIN' : null);
+  const here = SECTION_LIST.find(s => path.startsWith(`/work/${s.slug}`))?.key ?? (path.startsWith('/admin') ? 'ADMIN' : path.startsWith('/gov') ? 'GOV' : null);
   const [groups, setGroups] = useState<Record<string, boolean>>(() => (here ? { [here]: true } : {}));
   useEffect(() => {
     try {
@@ -110,8 +110,20 @@ export default function AppShell({ user, counts = {}, children }: {
               </div>
             );
           })}
-          <div className="sec kpi-sec">
-            <Link className={`item${path.startsWith('/gov') ? ' active' : ''}`} href="/gov"><span className="num">3</span>Governance</Link>
+          <div className={`sec group${groups.GOV ? ' open' : ''}`}>
+            <button type="button" className="sec-h toggle" aria-expanded={!!groups.GOV} aria-controls="nav-gov" onClick={() => toggle('GOV')}>
+              <span className="num">3</span>
+              <span className="sec-name">Governance</span>
+              <Icon name="chev" size={15} />
+            </button>
+            <div className="sec-items" id="nav-gov" ref={inert(!groups.GOV)}>
+              <div><div className="inner">
+                {item('/gov', 'Governance register', 'gov')}
+                <a className="item" href="/api/work/governance/export" download title="Download the governance register as an Excel file">
+                  <Icon name="xls" size={17} />Download Excel
+                </a>
+              </div></div>
+            </div>
           </div>
           <div className="sec kpi-sec">
             <Link className={`item${path.startsWith('/kpis') ? ' active' : ''}`} href="/kpis"><span className="num">4</span>Performance KPIs</Link>

@@ -19,7 +19,7 @@ export const SHEET_FILES = {
 } as const;
 export type FileKey = keyof typeof SHEET_FILES;
 
-const PER_RUN = 40;   // changed rows sent per file per run; the rest go next run
+const PER_RUN = 10;   // changed rows sent per file per run (keeps each run well under the 60 s limit); the rest go next run
 const GOV_COLS = ['Item ID', 'About', 'Project or unit', 'Governance item', 'Type', 'Owner', 'Status', 'Due date', 'Last review', 'Next review', 'Evidence link', 'Notes'];
 const GOV_DATES = new Set([7, 8, 9]);
 const T_DATA: Record<string, string> = {

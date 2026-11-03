@@ -61,7 +61,11 @@ function legacyHash(values: Row): string {
 function changedFields(values: Row, saved: string): string[] {
   if (saved === 'DELETED') return [];
   if (saved.startsWith('{')) {
-    try { const b = JSON.parse(saved) as Row; return Object.keys(values).filter(k => same(values[k]) !== same(b[k])); } catch { /* damaged copy */ }
+    try {
+      const b = JSON.parse(saved) as Row;
+      // A field the saved copy does not have yet (added in a later version) counts as unchanged.
+      return Object.keys(values).filter(k => b[k] !== undefined && same(values[k]) !== same(b[k]));
+    } catch { /* damaged copy */ }
   }
   return legacyHash(values) === saved ? [] : Object.keys(values);
 }
@@ -221,8 +225,10 @@ async function syncTrackerFile(book: Book, section: 'SYSTEMS_ENGINEERING' | 'AUT
   const values = (r: Cell[], d: Cell[] | undefined): Row => {
     const v: Row = {};
     for (const h of Object.keys(T_DATA)) if (D[h] !== undefined) v[T_DATA[h]] = text(r[D[h]], dDates.has(D[h]));
-    if (!v['Unit'] && D['Unit Name'] !== undefined) v['Unit'] = text(r[D['Unit Name']]);
-    if (!v['Project'] && D['Project Code'] !== undefined) v['Project'] = text(r[D['Project Code']]);
+    if (D['Unit Name'] !== undefined) v['Unit name'] = text(r[D['Unit Name']]);
+    if (D['Project Code'] !== undefined) v['Project code'] = text(r[D['Project Code']]);
+    if (!v['Unit'] && v['Unit name']) v['Unit'] = v['Unit name'];
+    if (!v['Project'] && v['Project code']) v['Project'] = v['Project code'];
     const p = r[D['% Complete']];
     v['Progress %'] = typeof p === 'number' ? String(Math.round(p <= 1 ? p * 100 : p)) : String(p ?? '').replace('%', '').trim();
     for (const h of Object.keys(T_DESC)) {
@@ -239,6 +245,9 @@ async function syncTrackerFile(book: Book, section: 'SYSTEMS_ENGINEERING' | 'AUT
     const saved = text(r[D['Sync']]);
     if (v['Order ID'] && saved === '') return;
     const fields = changedFields(v, saved);
+    // A unit picked by name (or a project picked by code) counts as a change of the unit (or project).
+    if (fields.includes('Unit name') && !fields.includes('Unit')) { v['Unit'] = v['Unit name']; fields.push('Unit'); }
+    if (fields.includes('Project code') && !fields.includes('Project')) { v['Project'] = v['Project code']; fields.push('Project'); }
     if (fields.length) changed.push({ key: String(i + 2), values: v, fields });
   });
   const sent = changed.slice(0, PER_RUN), waiting = new Set(changed.slice(PER_RUN).map(c => c.key));

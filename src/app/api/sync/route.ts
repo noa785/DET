@@ -14,7 +14,11 @@ export const maxDuration = 60;
 const Body = z.object({
   kind: z.enum(['orders', 'governance']),
   section: z.enum(['SYSTEMS_ENGINEERING', 'AUTOMATION']).optional(),
-  rows: z.array(z.object({ key: z.string().max(20), values: z.record(z.union([z.string(), z.number(), z.null()])) })).max(2000),
+  rows: z.array(z.object({
+    key: z.string().max(20),
+    values: z.record(z.union([z.string(), z.number(), z.null()])),
+    fields: z.array(z.string().max(40)).max(40).optional(),   // the cells that changed in the sheet
+  })).max(2000),
 });
 
 function authorised(req: NextRequest): boolean {

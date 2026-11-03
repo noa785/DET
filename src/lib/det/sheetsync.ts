@@ -1,7 +1,9 @@
 // src/lib/det/sheetsync.ts
 // Two-way sync with the Google Sheets of each team (Systems Engineering, Automation, Governance).
 // A small Google Apps Script sends the rows that changed in a sheet; DET saves them, then returns
-// every record so the script can write back what changed in DET. Sheet edits win when both changed.
+// every record so the script can write back what changed in DET. The script also sends which cells changed
+// (fields): only those are applied, so an edit made on the website to another cell of the same row stays.
+// Only when the very same cell changed in both places does the sheet win.
 
 import { prisma } from '@/lib/prisma/client';
 import { audit } from '@/lib/audit/logger';
@@ -10,7 +12,7 @@ import { nextOrderCode, resolveProject, loadGovItems } from './server';
 import { saveGovItem } from './govwrite';
 import {
   BUCKETS, GOV, GOV_ITEM_STATUS, GOV_ITEM_STATUS_KEYS, GOV_ITEM_TYPE, GOV_ITEM_TYPE_KEYS, bucketOf,
-  type Bucket, type DbStatus, type GovItemStatus, type GovItemType, type GovStatus, type SectionKey,
+  type Bucket, type DbStatus, type DetGov, type GovItemStatus, type GovItemType, type GovStatus, type SectionKey,
 } from './shared';
 
 /* ── Sheet columns (the order the script uses) ─────────────────────────────── */
@@ -20,7 +22,16 @@ export const ORDER_STATUS_LABELS = ['Not started', 'In progress', 'Stuck', 'Done
 export const ORDER_GOV_LABELS = ['Not required', 'Waiting review', 'Approved'];
 
 type Row = Record<string, string | number | null | undefined>;
-export type SyncResult = { ids: Record<string, string>; errors: { key: string; message: string }[]; snapshot: Row[]; lists: Record<string, string[]> };
+export type SyncResult = { ids: Record<string, string>; errors: { key: string; message: string }[]; deleted: string[]; snapshot: Row[]; lists: Record<string, string[]> };
+export type SyncRow = { key: string; values: Row; fields?: string[] };
+
+/** The record as DET has it, with only the cells that changed in the sheet laid over it. */
+function merge(current: Row, sheet: Row, fields?: string[]): Row {
+  if (!fields) return sheet;                         // old script or a new row: the whole row
+  const out: Row = { ...current };
+  for (const f of fields) if (f in sheet) out[f] = sheet[f];
+  return out;
+}
 
 const str = (v: unknown) => (v === null || v === undefined ? '' : String(v)).trim();
 const day = (v: unknown) => { const s = str(v); return /^\d{4}-\d{2}-\d{2}/.test(s) ? s.slice(0, 10) : ''; };
@@ -110,21 +121,25 @@ function sameRow(a: Row, b: Row): boolean {
   return f(a) === f(b);
 }
 
-export async function syncOrders(section: SectionKey, rows: { key: string; values: Row }[]): Promise<SyncResult> {
-  const ids: Record<string, string> = {}, errors: SyncResult['errors'] = [];
+export async function syncOrders(section: SectionKey, rows: SyncRow[]): Promise<SyncResult> {
+  const ids: Record<string, string> = {}, errors: SyncResult['errors'] = [], deleted: string[] = [];
   const owner = await sheetOwner(section === 'AUTOMATION' ? ['GOV_EDITOR'] : ['TECH_ADMIN']) ?? await sheetOwner(['SUPER_ADMIN', 'ADMIN']);
 
-  for (const { key, values: v } of rows.slice(0, 500)) {
+  for (const { key, values: sheetV, fields } of rows.slice(0, 500)) {
     try {
-      const name = str(v['Order']);
-      const code = str(v['Order ID']);
-      if (!name && !code) continue;
-      if (!name) { errors.push({ key, message: 'The Order column is empty' }); continue; }
+      const code = str(sheetV['Order ID']);
       const existing = code ? await prisma.order.findUnique({
         where: { orderCode: code },
-        select: { ...ORDER_ROW_SELECT, id: true, section: true, rescheduleCount: true },
+        select: { ...ORDER_ROW_SELECT, id: true, section: true, rescheduleCount: true, isDeleted: true },
       }) : null;
+      if (existing?.isDeleted) { deleted.push(key); continue; }   // deleted on the website: never brought back by the sheet
       if (existing && existing.section !== section) { errors.push({ key, message: `${code} belongs to the other section` }); continue; }
+      // Only the cells that changed in the sheet; the rest stays as DET has it (it may have been edited on the website).
+      const cur = existing ? orderRow(existing as unknown as OrderRowSrc) : {};
+      const v = existing ? merge({ ...cur, 'Status': cur['Status detail'] }, sheetV, fields) : sheetV;
+      const name = str(v['Order']);
+      if (!name && !code) continue;
+      if (!name) { errors.push({ key, message: 'The Order column is empty' }); continue; }
       // Nothing really changed (for example only the formatting): keep the record as it is.
       const asked = parseStatus(v['Status']);
       const incoming: Row = { ...v, 'Progress %': parseProgress(v['Progress %']) ?? '', 'Status': asked ? statusLabel(asked) : str(v['Status']) || (existing ? statusLabel(existing.status) : ''),
@@ -185,20 +200,36 @@ export async function syncOrders(section: SectionKey, rows: { key: string; value
     select: ORDER_ROW_SELECT,
   });
   const snapshot: Row[] = all.map(o => orderRow(o as unknown as OrderRowSrc));
-  return { ids, errors, snapshot, lists: await lists(section) };
+  return { ids, errors, deleted, snapshot, lists: await lists(section) };
 }
 
 /* ── Governance sheet ─────────────────────────────────────────────────────── */
-export async function syncGovernance(rows: { key: string; values: Row }[]): Promise<SyncResult> {
-  const ids: Record<string, string> = {}, errors: SyncResult['errors'] = [];
+function govRow(g: DetGov): Row {
+  return {
+    'Item ID': g.code, 'About': g.scope === 'PROJECT' ? 'Project' : 'Unit',
+    'Project or unit': (g.scope === 'PROJECT' ? g.projectName : g.unitName) ?? '', 'Governance item': g.title,
+    'Type': GOV_ITEM_TYPE[g.type] ?? 'Other', 'Owner': g.owner, 'Status': GOV_ITEM_STATUS[g.status]?.label ?? 'Planned',
+    'Due date': g.due ?? '', 'Last review': g.lastReview ?? '', 'Next review': g.nextReview ?? '', 'Evidence link': g.evidence, 'Notes': g.notes,
+  };
+}
+
+export async function syncGovernance(rows: SyncRow[]): Promise<SyncResult> {
+  const ids: Record<string, string> = {}, errors: SyncResult['errors'] = [], deleted: string[] = [];
+  const current = new Map((await loadGovItems()).map(g => [g.code, govRow(g)]));
   const owner = await sheetOwner(['GOVERNANCE_ADMIN']) ?? await sheetOwner(['SUPER_ADMIN', 'ADMIN']);
   const typeOf = (v: unknown): GovItemType => GOV_ITEM_TYPE_KEYS.find(k => norm(GOV_ITEM_TYPE[k]) === norm(str(v)) || norm(k) === norm(str(v))) ?? 'OTHER';
   const statusOf = (v: unknown): GovItemStatus => GOV_ITEM_STATUS_KEYS.find(k => norm(GOV_ITEM_STATUS[k].label) === norm(str(v)) || norm(k) === norm(str(v))) ?? 'PLANNED';
 
-  for (const { key, values: v } of rows.slice(0, 500)) {
+  for (const { key, values: sheetV, fields } of rows.slice(0, 500)) {
     try {
+      const code = str(sheetV['Item ID']);
+      if (code && !current.has(code)) {
+        const gone = await prisma.detGovItem.findFirst({ where: { code }, select: { isDeleted: true } });
+        if (gone?.isDeleted) { deleted.push(key); continue; }   // deleted on the website: never brought back by the sheet
+      }
+      const cur = code ? current.get(code) : undefined;
+      const v = cur ? merge(cur, sheetV, fields) : sheetV;
       const title = str(v['Governance item']);
-      const code = str(v['Item ID']);
       if (!title && !code) continue;
       if (!title) { errors.push({ key, message: 'The Governance item column is empty' }); continue; }
       const scope = norm(str(v['About'])).startsWith('proj') ? 'PROJECT' : 'UNIT';
@@ -215,12 +246,6 @@ export async function syncGovernance(rows: { key: string; values: Row }[]): Prom
     }
   }
 
-  const items = await loadGovItems();
-  const snapshot: Row[] = items.map(g => ({
-    'Item ID': g.code, 'About': g.scope === 'PROJECT' ? 'Project' : 'Unit',
-    'Project or unit': (g.scope === 'PROJECT' ? g.projectName : g.unitName) ?? '', 'Governance item': g.title,
-    'Type': GOV_ITEM_TYPE[g.type] ?? 'Other', 'Owner': g.owner, 'Status': GOV_ITEM_STATUS[g.status]?.label ?? 'Planned',
-    'Due date': g.due ?? '', 'Last review': g.lastReview ?? '', 'Next review': g.nextReview ?? '', 'Evidence link': g.evidence, 'Notes': g.notes,
-  }));
-  return { ids, errors, snapshot, lists: await lists() };
+  const snapshot: Row[] = (await loadGovItems()).map(govRow);
+  return { ids, errors, deleted, snapshot, lists: await lists() };
 }

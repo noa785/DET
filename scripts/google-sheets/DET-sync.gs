@@ -1,8 +1,11 @@
 /**
  * DET sync for Google Sheets: Systems Engineering, Automation and Governance.
  * Paste this file into Extensions > Apps Script of ONE of the three files, paste the token into CONFIG, run "setup" once.
- * Every 5 minutes it sends the rows changed in each sheet to DET, then writes back what changed in DET.
- * If the same row changed in both places within the same 5 minutes, the sheet wins.
+ * Every 5 minutes it sends the cells changed in each sheet to DET, then writes back what changed in DET.
+ * Fill in either place: changes merge cell by cell, so an edit on the website and an edit in the sheet to
+ * different cells of the same row both stay. Only when the very same cell changed in both places within the
+ * same 5 minutes does the sheet win. A cell typed while a sync is running is never overwritten (it goes next run).
+ * Delete on the website: the row is then struck through here. A row deleted in the sheet comes back.
  */
 const CONFIG = {
   DET_URL: 'https://eli-det.vercel.app/api/sync',
@@ -61,18 +64,21 @@ function syncOne(cfg) {
   const tz = ss.getSpreadsheetTimeZone();
   const sh = ss.getSheetByName(TAB[cfg.kind]);
   if (!sh) throw new Error('Tab "' + TAB[cfg.kind] + '" not found');
-  const cols = COLS[cfg.kind], n = cols.length, syncCol = n + 1;
+  const cols = COLS[cfg.kind], n = cols.length, width = n + 1;
   const last = sh.getLastRow();
-  const data = last > 1 ? sh.getRange(2, 1, last - 1, syncCol).getValues() : [];
+  const data = last > 1 ? sh.getRange(2, 1, last - 1, width).getValues() : [];
+  const orig = data.map(r => r.slice());
 
-  // 1. Rows that changed in the sheet since the last sync (their hash differs from the one saved in the hidden column).
-  //    A row with an ID but no saved hash has never been synced: DET's copy is taken as it is.
+  // 1. Cells that changed in the sheet since the last sync (compared with the copy kept in the hidden Sync column).
+  //    A row with an ID but nothing in Sync has never been synced: DET's copy is taken as it is.
   const changed = [];
   data.forEach((r, i) => {
     const values = toValues(cols, r, tz);
     if (cols.slice(1).every(c => values[c] === '')) return;   // empty row
-    if (values[cols[0]] && String(r[n]) === '') return;        // first sync of an existing record
-    if (hash(values) !== String(r[n])) changed.push({ key: String(i + 2), values: values });
+    const saved = String(r[n]);
+    if (values[cols[0]] && saved === '') return;               // first sync of an existing record
+    const fields = changedFields(values, saved);
+    if (fields.length) changed.push({ key: String(i + 2), values: values, fields: fields });
   });
   const sent = changed.slice(0, 60);
   const waiting = {};
@@ -80,32 +86,43 @@ function syncOne(cfg) {
 
   // 2. Send them; DET answers with every record.
   const out = post(cfg, sent);
-  const gotId = {};
-  Object.keys(out.ids).forEach(key => { const i = Number(key) - 2; if (data[i] && String(data[i][0]) !== out.ids[key]) { data[i][0] = out.ids[key]; gotId[key] = true; } });
+  Object.keys(out.ids).forEach(key => { const r = data[Number(key) - 2]; if (r) r[0] = out.ids[key]; });
   const byId = {};
   out.snapshot.forEach(v => { byId[v[cols[0]]] = v; });
-  const failed = {};
+  const failed = {}, gone = {};
   out.errors.forEach(e => { failed[e.key] = true; log(cfg, e.key, e.message); });
+  (out.deleted || []).forEach(k => { gone[k] = true; });
 
-  // 3. Write back what differs (changes made in DET), and remember the new hash.
+  // 3. Put DET's values in the rows (changes made on the website) and keep the synced copy.
+  const struck = [], unstruck = [];
   data.forEach((r, i) => {
-    const id = String(r[0] || '');
-    if (!id || failed[String(i + 2)] || waiting[String(i + 2)] || !byId[id]) { if (id) delete byId[id]; return; }
+    const key = String(i + 2), id = String(r[0] || ''), saved = String(r[n]);
+    if (!id) return;
     const fresh = byId[id];
     delete byId[id];
-    const current = toValues(cols, r, tz);
-    if (gotId[String(i + 2)] || hash(current) !== hash(pick(cols, fresh))) sh.getRange(i + 2, 1, 1, n).setValues([cols.map(c => cell(c, fresh[c]))]);
-    sh.getRange(i + 2, syncCol).setValue(hash(pick(cols, fresh)));
+    if (gone[key] || (!fresh && saved !== '' && saved !== 'edited' && saved !== 'DELETED' && !failed[key] && !waiting[key])) {
+      r[n] = 'DELETED'; struck.push(i); return;                 // deleted on the website
+    }
+    if (failed[key] || waiting[key]) return;
+    if (!fresh) { if (saved === '') r[n] = 'edited'; return; }  // typed ID that DET does not have yet: send it next run
+    cols.forEach((c, j) => { r[j] = cell(c, fresh[c]); });
+    r[n] = JSON.stringify(pick(cols, fresh));
+    if (saved === 'DELETED') unstruck.push(i);
   });
-  // Records added in DET that the sheet does not have yet go at the end.
+  const skipped = safeWrite(sh, 2, width, orig, data, tz);
+  struck.forEach(i => { if (!skipped[i]) sh.getRange(i + 2, 1, 1, n).setFontLine('line-through').setFontColor('#9AA5A4'); });
+  unstruck.forEach(i => { if (!skipped[i]) sh.getRange(i + 2, 1, 1, n).setFontLine('none').setFontColor(null); });
+
+  // Records added on the website that the sheet does not have yet go at the end.
   const extra = Object.keys(byId).map(id => byId[id]);
   if (extra.length) {
     const start = sh.getLastRow() + 1;
-    sh.getRange(start, 1, extra.length, syncCol).setValues(extra.map(v => cols.map(c => cell(c, v[c])).concat([hash(pick(cols, v))])));
+    sh.getRange(start, 1, extra.length, width).setValues(extra.map(v => cols.map(c => cell(c, v[c])).concat([JSON.stringify(pick(cols, v))])));
   }
   refreshLists(ss, out.lists, cfg.kind);
   if (cfg.kind === 'governance') mirrorGovernance(out.snapshot);
-  if (sent.length || extra.length || out.errors.length) log(cfg, '', 'Synced: ' + sent.length + ' sent' + (changed.length > sent.length ? ' (' + (changed.length - sent.length) + ' next run)' : '') + ', ' + extra.length + ' added from DET, ' + out.errors.length + ' problems');
+  const later = Object.keys(skipped).length;
+  if (sent.length || extra.length || out.errors.length || struck.length || later) log(cfg, '', 'Synced: ' + sent.length + ' sent' + (changed.length > sent.length ? ' (' + (changed.length - sent.length) + ' next run)' : '') + ', ' + extra.length + ' added from DET, ' + struck.length + ' deleted on the website, ' + later + ' typed during the sync (next run), ' + out.errors.length + ' problems');
 }
 
 /* ── Tracker file (Systems Engineering): the DET export layout, tabs Data and Description ── */
@@ -130,12 +147,14 @@ function syncTracker(cfg) {
   ['Order ID', 'Project Name', 'Task/Subtask Name', 'Status', 'Sync'].forEach(h => { if (D[h] === undefined) throw new Error('Data tab: column "' + h + '" not found'); });
   const dLast = dsh.getLastRow();
   const data = dLast > 1 ? dsh.getRange(2, 1, dLast - 1, dw).getValues() : [];
+  const dOrig = data.map(r => r.slice());
 
   const ew = esh.getLastColumn();
   const eh = esh.getRange(1, 1, 1, ew).getValues()[0].map(String);
   const E = {}; eh.forEach((h, j) => { E[h.trim()] = j; });
   const eLast = esh.getLastRow();
   const desc = eLast > 1 ? esh.getRange(2, 1, eLast - 1, ew).getValues() : [];
+  const eOrig = desc.map(r => r.slice());
   const descOf = {}, descByName = {};
   desc.forEach(r => {
     const id = String(r[E['Order ID']] || '').trim();
@@ -155,7 +174,8 @@ function syncTracker(cfg) {
     if (!values['Order'] && !values['Order ID']) return;
     const saved = String(r[D['Sync']] || '');
     if (values['Order ID'] && saved === '') return;            // first sync of an existing order: DET's copy is taken
-    if (hash(values) !== saved) changed.push({ key: String(i + 2), values: values });
+    const fields = changedFields(values, saved);
+    if (fields.length) changed.push({ key: String(i + 2), values: values, fields: fields });
   });
   const sent = changed.slice(0, 60);
   const waiting = {};
@@ -172,8 +192,9 @@ function syncTracker(cfg) {
   });
   const byId = {};
   out.snapshot.forEach(v => { byId[v['Order ID']] = v; });
-  const failed = {};
+  const failed = {}, gone = {};
   out.errors.forEach(e => { failed[e.key] = true; log(cfg, e.key, e.message); });
+  (out.deleted || []).forEach(k => { gone[k] = true; });
 
   // 3. Write DET's values into the file (only the columns DET owns), and remember the hash.
   const newDesc = [];
@@ -193,13 +214,21 @@ function syncTracker(cfg) {
       setIf(d, E, 'Order ID', v['Order ID']); setIf(d, E, 'Unit Code', v['Unit code']); setIf(d, E, 'Task/Subtask Name', v['Order']);
       setIf(d, E, 'Weekly Bullet', bullets); setIf(d, E, 'Weekly Narrative', v['Narrative'] || '');
     }
-    r[D['Sync']] = hash(trackerValues(r, d, D, E, tz));
+    r[D['Sync']] = JSON.stringify(trackerValues(r, d, D, E, tz));
   };
+  const struck = [], unstruck = [];
   data.forEach((r, i) => {
-    const id = String(r[D['Order ID']] || '');
-    if (!id || failed[String(i + 2)] || waiting[String(i + 2)] || !byId[id]) { if (id) delete byId[id]; return; }
-    apply(r, byId[id]);
+    const key = String(i + 2), id = String(r[D['Order ID']] || ''), saved = String(r[D['Sync']] || '');
+    if (!id) return;
+    const fresh = byId[id];
     delete byId[id];
+    if (gone[key] || (!fresh && saved !== '' && saved !== 'edited' && saved !== 'DELETED' && !failed[key] && !waiting[key])) {
+      r[D['Sync']] = 'DELETED'; struck.push(i); return;         // deleted on the website
+    }
+    if (failed[key] || waiting[key]) return;
+    if (!fresh) { if (saved === '') r[D['Sync']] = 'edited'; return; }   // typed ID that DET does not have yet: send it next run
+    apply(r, fresh);
+    if (saved === 'DELETED') unstruck.push(i);
   });
   const extra = Object.keys(byId).map(id => byId[id]);
   extra.forEach(v => {
@@ -208,10 +237,17 @@ function syncTracker(cfg) {
     apply(r, v);
     data.push(r);
   });
-  if (data.length) dsh.getRange(2, 1, data.length, dw).setValues(data);
-  const allDesc = desc.concat(newDesc);
-  if (allDesc.length) esh.getRange(2, 1, allDesc.length, ew).setValues(allDesc);
-  if (sent.length || extra.length || out.errors.length) log(cfg, '', 'Synced: ' + sent.length + ' sent' + (changed.length > sent.length ? ' (' + (changed.length - sent.length) + ' next run)' : '') + ', ' + extra.length + ' added from DET, ' + out.errors.length + ' problems');
+  // Only the rows that really change are written, and never a row someone typed in while this sync was running.
+  const base = dOrig.length;
+  const skipped = safeWrite(dsh, 2, dw, dOrig, data.slice(0, base), tz);
+  struck.forEach(i => { if (!skipped[i]) dsh.getRange(i + 2, 1, 1, dw - 1).setFontLine('line-through').setFontColor('#9AA5A4'); });
+  unstruck.forEach(i => { if (!skipped[i]) dsh.getRange(i + 2, 1, 1, dw - 1).setFontLine('none').setFontColor(null); });
+  const added = data.slice(base);
+  if (added.length) dsh.getRange(dsh.getLastRow() + 1, 1, added.length, dw).setValues(added);
+  const eSkipped = safeWrite(esh, 2, ew, eOrig, desc, tz);
+  if (newDesc.length) esh.getRange(esh.getLastRow() + 1, 1, newDesc.length, ew).setValues(newDesc);
+  const later = Object.keys(skipped).length + Object.keys(eSkipped).length;
+  if (sent.length || extra.length || out.errors.length || struck.length || later) log(cfg, '', 'Synced: ' + sent.length + ' sent' + (changed.length > sent.length ? ' (' + (changed.length - sent.length) + ' next run)' : '') + ', ' + extra.length + ' added from DET, ' + struck.length + ' deleted on the website, ' + later + ' typed during the sync (next run), ' + out.errors.length + ' problems');
 }
 
 /**
@@ -333,6 +369,49 @@ function cell(c, x) {
   if (x === null || x === undefined) return '';
   if (DATE_COLS.indexOf(c) >= 0) return String(x);   // "2026-11-10": the sheet turns it into a date in its own time zone
   return x;
+}
+/** The fields that differ from the copy saved at the last sync. An old-style saved value (a hash) means the whole row. */
+function changedFields(values, saved) {
+  if (saved === 'DELETED') return [];
+  if (saved.charAt(0) === '{') {
+    try {
+      const b = JSON.parse(saved);
+      return Object.keys(values).filter(k => same(values[k]) !== same(b[k]));
+    } catch (e) { /* damaged copy: treat as a full change */ }
+  }
+  return hash(values) === saved ? [] : Object.keys(values);
+}
+function same(x) { return (x === null || x === undefined ? '' : String(x)).replace(/\s+/g, ' ').trim(); }
+
+/**
+ * Writes only the rows that change, and only if nobody edited them since they were read at the start of this sync.
+ * Returns the rows it left alone (they are picked up by the next run).
+ */
+function safeWrite(sh, startRow, width, orig, next, tz) {
+  const skipped = {};
+  const todo = [];
+  orig.forEach((r, i) => { if (!rowEq(r, next[i], tz)) todo.push(i); });
+  if (!todo.length) return skipped;
+  const now = sh.getRange(startRow, 1, orig.length, width).getValues();
+  const ok = todo.filter(i => { if (now[i] && rowEq(now[i], orig[i], tz)) return true; skipped[i] = true; return false; });
+  for (let k = 0; k < ok.length;) {
+    let e = k;
+    while (e + 1 < ok.length && ok[e + 1] === ok[e] + 1) e++;
+    sh.getRange(startRow + ok[k], 1, e - k + 1, width).setValues(next.slice(ok[k], ok[e] + 1));
+    k = e + 1;
+  }
+  return skipped;
+}
+function rowEq(a, b, tz) {
+  if (!a || !b) return false;
+  const len = Math.max(a.length, b.length);
+  for (let j = 0; j < len; j++) if (cellKey(a[j], tz) !== cellKey(b[j], tz)) return false;
+  return true;
+}
+function cellKey(x, tz) {
+  if (x instanceof Date) return Utilities.formatDate(x, tz, 'yyyy-MM-dd');
+  if (typeof x === 'number') return String(Math.round(x * 1e6) / 1e6);
+  return x === null || x === undefined ? '' : String(x);
 }
 function hash(values) {
   const keys = Object.keys(values).sort();

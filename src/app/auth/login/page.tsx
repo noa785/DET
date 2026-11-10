@@ -3,8 +3,12 @@ export const dynamic = 'force-dynamic';
 import { Suspense } from 'react';
 import { Metadata } from 'next';
 import LoginForm from './LoginForm';
+import { getT } from '@/lib/i18n/server';
 
-export const metadata: Metadata = { title: 'Sign in | Digital Enterprise Tracker' };
+export function generateMetadata(): Metadata {
+  const t = getT();
+  return { title: t('Sign in | Digital Enterprise Tracker') };
+}
 
 export default function LoginPage() {
   return (

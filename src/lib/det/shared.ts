@@ -62,6 +62,7 @@ export type DetOrder = {
   due: string | null;        // YYYY-MM-DD
   gov: GovStatus;
   govNote: string;
+  govNoteAr: string;
   points: string[];
   narrative: string;
   risks: string;
@@ -206,9 +207,9 @@ export type DetGov = {
   id: string; code: string; scope: GovScope;
   projectCode: string | null; projectName: string | null; projectSection: SectionKey | null;
   unitCode: string | null; unitName: string | null;
-  title: string; type: GovItemType; status: GovItemStatus; owner: string;
+  title: string; titleAr: string; type: GovItemType; status: GovItemStatus; owner: string;
   due: string | null; lastReview: string | null; nextReview: string | null;
-  evidence: string; notes: string; updatedAt: string;
+  evidence: string; notes: string; notesAr: string; updatedAt: string;
 };
 /** A governance item is overdue when its next review date has passed. */
 export function govOverdue(g: Pick<DetGov, 'nextReview'>, today = todayISO()): boolean {

@@ -21,6 +21,7 @@ const PatchSchema = z.object({
   project:   z.string().trim().max(200).nullable().optional(),   // project code or name; a new name creates the project
   govStatus: z.enum(['NOT_REQUIRED', 'PENDING', 'APPROVED']).optional(),
   govNote:   z.string().trim().max(5000).optional(),
+  govNoteAr: z.string().trim().max(5000).optional(),
   points:    z.array(z.string().trim().max(1000)).max(100).optional(),
   narrative: z.string().trim().max(10000).optional(),
   note:      z.string().trim().max(2000).optional(),   // "what changed", saved in the history only
@@ -122,6 +123,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     changes.push(`Governance: ${GOV[b.govStatus as GovStatus].label}`);
   }
   if (b.govNote !== undefined) data.govNote = b.govNote || null;
+  if (b.govNoteAr !== undefined) data.govNoteAr = b.govNoteAr || null;
 
   const desc: Record<string, unknown> = {};
   if (b.points !== undefined) { const p = b.points.filter(Boolean); desc.bulletSummary = p.length ? p.join('\n') : null; }

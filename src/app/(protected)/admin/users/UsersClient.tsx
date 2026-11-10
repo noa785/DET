@@ -1,6 +1,8 @@
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useLang } from '@/lib/i18n/client';
+import { locale } from '@/lib/i18n/core';
 
 interface User {
   id: string;
@@ -60,6 +62,7 @@ const AVATAR_C = ['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec489
 
 export default function UsersClient({ users: initial, units, currentUserId }: Props) {
   const router = useRouter();
+  const { t, lang } = useLang();
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -95,8 +98,8 @@ export default function UsersClient({ users: initial, units, currentUserId }: Pr
   }
 
   async function handleSave() {
-    if (!name.trim() || !email.trim()) { setError('Name and email are required'); return; }
-    if (!editingId && (!password || password.length < 6)) { setError('Password must be at least 6 characters'); return; }
+    if (!name.trim() || !email.trim()) { setError(t('Name and email are required')); return; }
+    if (!editingId && (!password || password.length < 6)) { setError(t('Password must be at least 6 characters')); return; }
     setSaving(true); setError('');
 
     try {
@@ -107,7 +110,7 @@ export default function UsersClient({ users: initial, units, currentUserId }: Pr
       const method = editingId ? 'PUT' : 'POST';
 
       const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-      if (!res.ok) { const d = await res.json(); setError(d.error || 'Failed'); return; }
+      if (!res.ok) { const d = await res.json(); setError(d.error || t('Failed')); return; }
 
       reset(); setShowForm(false); router.refresh();
     } catch (e: any) { setError(e.message); }
@@ -115,13 +118,13 @@ export default function UsersClient({ users: initial, units, currentUserId }: Pr
   }
 
   async function handleDeactivate(id: string, userName: string) {
-    if (id === currentUserId) { alert('Cannot deactivate your own account'); return; }
-    if (!confirm(`Deactivate ${userName}? They will not be able to log in.`)) return;
+    if (id === currentUserId) { alert(t('Cannot deactivate your own account')); return; }
+    if (!confirm(t('Deactivate {name}? They will not be able to log in.', { name: userName }))) return;
     try {
       const res = await fetch(`/api/users/${id}`, { method: 'DELETE' });
-      if (!res.ok) { alert('Failed'); return; }
+      if (!res.ok) { alert(t('Failed')); return; }
       router.refresh();
-    } catch { alert('Failed'); }
+    } catch { alert(t('Failed')); }
   }
 
   async function handleReactivate(id: string) {
@@ -131,9 +134,9 @@ export default function UsersClient({ users: initial, units, currentUserId }: Pr
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ isActive: true }),
       });
-      if (!res.ok) { alert('Failed'); return; }
+      if (!res.ok) { alert(t('Failed')); return; }
       router.refresh();
-    } catch { alert('Failed'); }
+    } catch { alert(t('Failed')); }
   }
 
   return (
@@ -141,10 +144,10 @@ export default function UsersClient({ users: initial, units, currentUserId }: Pr
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-display font-bold text-2xl text-[var(--text)]">Users & Roles</h1>
-          <p className="text-sm text-[var(--text-3)] mt-0.5">{initial.length} users ({activeCount} active)</p>
+          <h1 className="font-display font-bold text-2xl text-[var(--text)]">{t('Users & Roles')}</h1>
+          <p className="text-sm text-[var(--text-3)] mt-0.5">{t('{n} users ({active} active)', { n: initial.length, active: activeCount })}</p>
         </div>
-        <button onClick={openCreate} className="pes-btn-primary text-[13px]">+ Add User</button>
+        <button onClick={openCreate} className="pes-btn-primary text-[13px]">{t('+ Add User')}</button>
       </div>
 
       {/* Form Modal */}
@@ -153,7 +156,7 @@ export default function UsersClient({ users: initial, units, currentUserId }: Pr
           <div className="pes-card p-6 w-full max-w-md mx-4 mb-10 space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="font-display font-bold text-[17px] text-[var(--text)]">
-                {editingId ? 'Edit User' : 'Add User'}
+                {t(editingId ? 'Edit User' : 'Add User')}
               </h2>
               <button onClick={() => { setShowForm(false); reset(); }} className="text-[var(--text-3)] hover:text-[var(--text)] text-xl">&times;</button>
             </div>
@@ -161,35 +164,35 @@ export default function UsersClient({ users: initial, units, currentUserId }: Pr
             {error && <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-red-400 text-[13px]">{error}</div>}
 
             <div>
-              <label className="pes-label">Full Name *</label>
-              <input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Sarah Al-Qahtani" className="pes-input w-full mt-1 text-[13px]" />
+              <label className="pes-label">{t('Full Name *')}</label>
+              <input value={name} onChange={e => setName(e.target.value)} placeholder={t('e.g. Sarah Al-Qahtani')} className="pes-input w-full mt-1 text-[13px]" />
             </div>
 
             <div>
-              <label className="pes-label">Email *</label>
+              <label className="pes-label">{t('Email *')}</label>
               <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="e.g. sarah@dgcc.edu.sa" className="pes-input w-full mt-1 text-[13px]" />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="pes-label">Role</label>
+                <label className="pes-label">{t('Role')}</label>
                 <select value={role} onChange={e => setRole(e.target.value)} className="pes-input w-full mt-1 text-[13px]">
-                  {ROLES.map(r => <option key={r} value={r}>{ROLE_LABEL[r] ?? r.replace(/_/g, ' ')}</option>)}
+                  {ROLES.map(r => <option key={r} value={r}>{ROLE_LABEL[r] ? t(ROLE_LABEL[r]) : r.replace(/_/g, ' ')}</option>)}
                 </select>
               </div>
               <div>
-                <label className="pes-label">Unit</label>
+                <label className="pes-label">{t('Unit')}</label>
                 <select value={unitId} onChange={e => setUnitId(e.target.value)} className="pes-input w-full mt-1 text-[13px]">
-                  <option value="">— None —</option>
+                  <option value="">{t('— None —')}</option>
                   {units.map(u => <option key={u.id} value={u.id}>{u.code} - {u.name}</option>)}
                 </select>
               </div>
             </div>
 
             <div>
-              <label className="pes-label">{editingId ? 'New Password (leave empty to keep current)' : 'Password *'}</label>
+              <label className="pes-label">{t(editingId ? 'New Password (leave empty to keep current)' : 'Password *')}</label>
               <input type="password" value={password} onChange={e => setPassword(e.target.value)}
-                placeholder={editingId ? 'Leave empty to keep current' : 'Min 6 characters'}
+                placeholder={t(editingId ? 'Leave empty to keep current' : 'Min 6 characters')}
                 className="pes-input w-full mt-1 text-[13px]" />
             </div>
 
@@ -197,14 +200,14 @@ export default function UsersClient({ users: initial, units, currentUserId }: Pr
               <div className="flex items-center gap-2">
                 <input type="checkbox" id="active" checked={isActive} onChange={e => setIsActive(e.target.checked)}
                   className="rounded border-slate-600" />
-                <label htmlFor="active" className="text-[13px] text-[var(--text-2)]">Active</label>
+                <label htmlFor="active" className="text-[13px] text-[var(--text-2)]">{t('Active')}</label>
               </div>
             )}
 
             <div className="flex justify-end gap-3 pt-3 border-t border-[var(--border)]">
-              <button onClick={() => { setShowForm(false); reset(); }} className="pes-btn-ghost text-[13px]">Cancel</button>
+              <button onClick={() => { setShowForm(false); reset(); }} className="pes-btn-ghost text-[13px]">{t('Cancel')}</button>
               <button onClick={handleSave} disabled={saving} className="pes-btn-primary text-[13px]">
-                {saving ? 'Saving...' : editingId ? 'Save Changes' : 'Add User'}
+                {t(saving ? 'Saving...' : editingId ? 'Save Changes' : 'Add User')}
               </button>
             </div>
           </div>
@@ -217,7 +220,7 @@ export default function UsersClient({ users: initial, units, currentUserId }: Pr
           <thead>
             <tr className="border-b border-[var(--border)] bg-[var(--surface)]">
               {['Name', 'Email', 'Role', 'Unit', 'Active', 'Last Login', 'Actions'].map(h => (
-                <th key={h} className="px-4 py-3 text-left text-[10.5px] font-semibold uppercase tracking-wider text-[var(--text-3)]">{h}</th>
+                <th key={h} className="px-4 py-3 text-left text-[10.5px] font-semibold uppercase tracking-wider text-[var(--text-3)]">{t(h)}</th>
               ))}
             </tr>
           </thead>
@@ -238,25 +241,25 @@ export default function UsersClient({ users: initial, units, currentUserId }: Pr
                   <td className="px-4 py-2.5 text-[var(--text-2)]">{u.email}</td>
                   <td className="px-4 py-2.5">
                     <span className="text-[10.5px] font-semibold px-2 py-0.5 rounded" style={{ background: rc + '18', color: rc }}>
-                      {ROLE_LABEL[u.role] ?? u.role.replace(/_/g, ' ')}
+                      {ROLE_LABEL[u.role] ? t(ROLE_LABEL[u.role]) : u.role.replace(/_/g, ' ')}
                     </span>
                   </td>
                   <td className="px-4 py-2.5 text-[var(--text-2)]">{u.unit?.code ?? '—'}</td>
                   <td className="px-4 py-2.5">
                     {u.isActive
-                      ? <span className="text-green-400 text-[12px]">● Active</span>
-                      : <span className="text-red-400 text-[12px]">● Inactive</span>}
+                      ? <span className="text-green-400 text-[12px]">{t('● Active')}</span>
+                      : <span className="text-red-400 text-[12px]">{t('● Inactive')}</span>}
                   </td>
                   <td className="px-4 py-2.5 text-[12px] text-[var(--text-3)]">
-                    {u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }) : 'Never'}
+                    {u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleDateString(locale(lang), { day: '2-digit', month: 'short', year: '2-digit' }) : t('Never')}
                   </td>
                   <td className="px-4 py-2.5">
                     <div className="flex items-center gap-2">
-                      <button onClick={() => openEdit(u)} className="text-[11.5px] text-blue-400 hover:text-blue-300">Edit</button>
+                      <button onClick={() => openEdit(u)} className="text-[11.5px] text-blue-400 hover:text-blue-300">{t('Edit')}</button>
                       {u.id !== currentUserId && (
                         u.isActive
-                          ? <button onClick={() => handleDeactivate(u.id, u.name)} className="text-[11.5px] text-red-400 hover:text-red-300">Deactivate</button>
-                          : <button onClick={() => handleReactivate(u.id)} className="text-[11.5px] text-green-400 hover:text-green-300">Reactivate</button>
+                          ? <button onClick={() => handleDeactivate(u.id, u.name)} className="text-[11.5px] text-red-400 hover:text-red-300">{t('Deactivate')}</button>
+                          : <button onClick={() => handleReactivate(u.id)} className="text-[11.5px] text-green-400 hover:text-green-300">{t('Reactivate')}</button>
                       )}
                     </div>
                   </td>

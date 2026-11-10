@@ -4,11 +4,13 @@
 import { useMemo, useState } from 'react';
 import { BUCKETS, BUCKET_KEYS, GOV, GOV_KEYS, type Bucket, type DetOrder, type DetProject, type DetUnit, type GovStatus, type SectionKey } from '@/lib/det/shared';
 import { DateHeader, Icon, NO_FILTERS, OrderFilters, PageHeader, ProjectSelect, UnitSelect, api, applyOrderFilters, type OrderFilterState } from '@/components/det/ui';
+import { useLang } from '@/lib/i18n/client';
 
 type State = 'saved' | 'saving' | 'error';
 const PAGE = 60;
 
 export default function GridClient({ section, initial, owners, units, projects: initialProjects = [] }: { section: SectionKey; initial: DetOrder[]; owners: string[]; units: DetUnit[]; projects?: DetProject[] }) {
+  const { t } = useLang();
   const [rows, setRows] = useState(initial);
   const [projects, setProjects] = useState(initialProjects);
   const [state, setState] = useState<State>('saved');
@@ -36,14 +38,14 @@ export default function GridClient({ section, initial, owners, units, projects: 
 
   return (
     <>
-      <PageHeader section={section} title="Grid Editor" sub="Edit any cell directly. Changes save on their own." />
+      <PageHeader section={section} title={t('Grid Editor')} sub={t('Edit any cell directly. Changes save on their own.')} />
       <div className="card ge">
         <div className="card-h">
-          <h3>{rows.length} orders</h3>
+          <h3>{t('{n} orders', { n: rows.length })}</h3>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-            <div className="tb-search"><Icon name="search" size={15} /><input value={q} onChange={e => { setQ(e.target.value); setPage(1); }} placeholder="Search orders" /></div>
+            <div className="tb-search"><Icon name="search" size={15} /><input value={q} onChange={e => { setQ(e.target.value); setPage(1); }} placeholder={t('Search orders')} /></div>
             <span className="saved" style={state === 'error' ? { color: 'var(--red)' } : undefined}>
-              {state === 'saving' ? 'Saving…' : state === 'error' ? 'Could not save. Try again.' : <><Icon name="check" size={14} />All changes saved</>}
+              {state === 'saving' ? t('Saving…') : state === 'error' ? t('Could not save. Try again.') : <><Icon name="check" size={14} />{t('All changes saved')}</>}
             </span>
           </div>
         </div>
@@ -51,7 +53,7 @@ export default function GridClient({ section, initial, owners, units, projects: 
         <datalist id="grid-owners">{owners.map(o => <option key={o} value={o} />)}</datalist>
         <div className="tbl-wrap">
           <table>
-            <thead><tr><th style={{ width: '26%' }}>Order</th><th style={{ width: 180 }}>Project</th><th style={{ width: 170 }}>Unit</th><th>Responsible</th><th>Status</th><th style={{ width: 100 }}>Progress %</th><th><DateHeader field="start" value={f} onChange={v => { setF(v); setPage(1); }} /></th><th><DateHeader field="due" value={f} onChange={v => { setF(v); setPage(1); }} /></th><th>Governance</th></tr></thead>
+            <thead><tr><th style={{ width: '26%' }}>{t('Order')}</th><th style={{ width: 180 }}>{t('Project')}</th><th style={{ width: 170 }}>{t('Unit')}</th><th>{t('Responsible')}</th><th>{t('Status')}</th><th style={{ width: 100 }}>{t('Progress %')}</th><th><DateHeader field="start" value={f} onChange={v => { setF(v); setPage(1); }} /></th><th><DateHeader field="due" value={f} onChange={v => { setF(v); setPage(1); }} /></th><th>{t('Governance')}</th></tr></thead>
             <tbody>
               {shown.map(o => (
                 <tr key={o.id}>
@@ -60,30 +62,30 @@ export default function GridClient({ section, initial, owners, units, projects: 
                   <td><ProjectSelect projects={projects} value={o.projectName ?? ''}
                     onChange={name => { local(o.id, { projectName: name || null }); if (!name || projects.some(p => p.name === name)) save(o, { project: name || null }); }} />
                     {!!o.projectName && !projects.some(p => p.name === o.projectName) && (
-                      <button type="button" className="link-btn" onClick={() => save(o, { project: o.projectName })}>Save project</button>
+                      <button type="button" className="link-btn" onClick={() => save(o, { project: o.projectName })}>{t('Save project')}</button>
                     )}</td>
                   <td><UnitSelect units={units} value={o.unitCode ?? ''} emptyLabel="No unit"
                     onChange={code => { local(o.id, { unitCode: code || null, unitName: units.find(u => u.code === code)?.name ?? null }); save(o, { unitCode: code || null }); }} /></td>
                   <td><input type="text" list="grid-owners" value={o.owner} onChange={e => local(o.id, { owner: e.target.value })}
                     onBlur={e => save(o, { ownerName: e.target.value.trim() })} /></td>
                   <td><select value={o.bucket} onChange={e => { local(o.id, { bucket: e.target.value as Bucket }); save(o, { bucket: e.target.value }); }}>
-                    {BUCKET_KEYS.map(k => <option key={k} value={k}>{BUCKETS[k].label}</option>)}
+                    {BUCKET_KEYS.map(k => <option key={k} value={k}>{t(BUCKETS[k].label)}</option>)}
                   </select></td>
                   <td><input type="number" min={0} max={100} value={o.progress} onChange={e => local(o.id, { progress: Number(e.target.value) })}
                     onBlur={e => save(o, { progress: Math.max(0, Math.min(100, Number(e.target.value) || 0)) })} /></td>
-                  <td><input type="date" value={o.start ?? ''} aria-label="Start date" onChange={e => { local(o.id, { start: e.target.value || null }); save(o, { startDate: e.target.value || null }); }} /></td>
+                  <td><input type="date" value={o.start ?? ''} aria-label={t('Start date')} onChange={e => { local(o.id, { start: e.target.value || null }); save(o, { startDate: e.target.value || null }); }} /></td>
                   <td><input type="date" value={o.due ?? ''} onChange={e => { local(o.id, { due: e.target.value || null }); save(o, { dueDate: e.target.value || null }); }} /></td>
                   <td><select value={o.gov} onChange={e => { local(o.id, { gov: e.target.value as GovStatus }); save(o, { govStatus: e.target.value }); }}>
-                    {GOV_KEYS.map(k => <option key={k} value={k}>{GOV[k].label}</option>)}
+                    {GOV_KEYS.map(k => <option key={k} value={k}>{t(GOV[k].label)}</option>)}
                   </select></td>
                 </tr>
               ))}
-              {!shown.length && <tr><td colSpan={9}><div className="empty"><b>{rows.length ? 'No orders match' : 'No orders here yet'}</b>{rows.length ? 'Try another filter or search, or clear the filters.' : 'Orders you add will appear here.'}</div></td></tr>}
+              {!shown.length && <tr><td colSpan={9}><div className="empty"><b>{t(rows.length ? 'No orders match' : 'No orders here yet')}</b>{t(rows.length ? 'Try another filter or search, or clear the filters.' : 'Orders you add will appear here.')}</div></td></tr>}
             </tbody>
           </table>
         </div>
         {list.length > shown.length && (
-          <div className="pager"><span>Showing {shown.length} of {list.length}</span><button className="btn" onClick={() => setPage(p => p + 1)}>Show more</button></div>
+          <div className="pager"><span>{t('Showing {shown} of {total}', { shown: shown.length, total: list.length })}</span><button className="btn" onClick={() => setPage(p => p + 1)}>{t('Show more')}</button></div>
         )}
       </div>
     </>

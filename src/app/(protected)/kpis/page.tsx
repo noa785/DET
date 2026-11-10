@@ -4,9 +4,13 @@ import { Metadata } from 'next';
 import { requireAuth } from '@/lib/auth/session';
 import { loadGovItems, loadOrders, loadSystems, loadUnits } from '@/lib/det/server';
 import { downloadableSections } from '@/lib/det/shared';
+import { getT } from '@/lib/i18n/server';
 import KpiClient from './KpiClient';
 
-export const metadata: Metadata = { title: 'Performance KPIs | Digital Enterprise Tracker' };
+export function generateMetadata(): Metadata {
+  const t = getT();
+  return { title: `${t('Performance KPIs')} | ${t('Digital Enterprise Tracker')}` };
+}
 
 export default async function KpisPage() {
   const user = await requireAuth();

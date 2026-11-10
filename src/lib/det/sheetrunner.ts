@@ -9,7 +9,7 @@
 
 import { createHash } from 'crypto';
 import { prisma } from '@/lib/prisma/client';
-import { Book, a1, grid, serialToIso, type Cell } from './gsheets';
+import { Book, a1, colLetter, grid, serialToIso, type Cell } from './gsheets';
 import { syncGovernance, syncOrders, type SyncResult, type SyncRow } from './sheetsync';
 
 export const SHEET_FILES = {
@@ -20,14 +20,27 @@ export const SHEET_FILES = {
 export type FileKey = keyof typeof SHEET_FILES;
 
 const PER_RUN = 10;   // changed rows sent per file per run (keeps each run well under the 60 s limit); the rest go next run
-const GOV_COLS = ['Item ID', 'About', 'Project or unit', 'Governance item', 'Type', 'Owner', 'Status', 'Due date', 'Last review', 'Next review', 'Evidence link', 'Notes'];
-const GOV_DATES = new Set([7, 8, 9]);
+// Governance file columns: [key used by the sync, English header, Arabic header]. Found by header, so their order may change.
+const GOV_HEAD: [string, string, string][] = [
+  ['Item ID', 'Item ID', 'رقم البند'], ['About', 'About', 'يخص'], ['Project or unit', 'Project or unit', 'المشروع أو الوحدة'],
+  ['Governance item', 'Governance item', 'بند الحوكمة'], ['Governance item AR', 'Governance item (Arabic)', 'بند الحوكمة (عربي)'],
+  ['Type', 'Type', 'النوع'], ['Owner', 'Owner', 'المسؤول'], ['Status', 'Status', 'الحالة'], ['Due date', 'Due date', 'تاريخ الاستحقاق'],
+  ['Last review', 'Last review', 'آخر مراجعة'], ['Next review', 'Next review', 'المراجعة القادمة'], ['Evidence link', 'Evidence link', 'رابط الدليل'],
+  ['Notes', 'Notes', 'ملاحظات'], ['Notes AR', 'Notes (Arabic)', 'ملاحظات (عربي)'],
+];
+const GOV_COLS = GOV_HEAD.map(h => h[0]);
+const GOV_DATE_KEYS = new Set(['Due date', 'Last review', 'Next review']);
+const DG_AR = 'Data Governance (Arabic)';
+/** Fields added with the Arabic columns: a value already in the sheet is taken by DET the first time. */
+const TAKE_NEW = new Set(['Gov note', 'Gov note AR', 'Governance item AR', 'Notes AR']);
+const biHead = (en: string, ar: string) => `${en} / ${ar}`;
 const T_DATA: Record<string, string> = {
   'Order ID': 'Order ID', 'Project Name': 'Project', 'Task/Subtask Name': 'Order', 'Owner / Assignee': 'Responsible',
   'Unit Code': 'Unit', 'Start Date': 'Start date', 'Due Date': 'Due date', '% Complete': 'Progress %', 'Status': 'Status', 'Governance': 'Governance',
 };
-const T_DESC: Record<string, string> = { 'Weekly Bullet': 'Description', 'Weekly Narrative': 'Narrative' };
+const T_DESC: Record<string, string> = { 'Weekly Bullet': 'Description', 'Weekly Narrative': 'Narrative', 'Data Governance': 'Gov note', [DG_AR]: 'Gov note AR' };
 const TEAL = { red: 0x15 / 255, green: 0x8b / 255, blue: 0x87 / 255 };
+const YELLOW = { red: 1, green: 0.95, blue: 0.7 };
 const GREY = { red: 0x9a / 255, green: 0xa5 / 255, blue: 0xa4 / 255 };
 
 type Row = Record<string, string>;
@@ -63,8 +76,9 @@ function changedFields(values: Row, saved: string): string[] {
   if (saved.startsWith('{')) {
     try {
       const b = JSON.parse(saved) as Row;
-      // A field the saved copy does not have yet (added in a later version) counts as unchanged.
-      return Object.keys(values).filter(k => b[k] !== undefined && same(values[k]) !== same(b[k]));
+      // A field the saved copy does not have yet (added in a later version) counts as unchanged, except the
+      // governance notes: a note already typed in the sheet is taken, and an empty new column never wipes DET's value.
+      return Object.keys(values).filter(k => (b[k] === undefined ? TAKE_NEW.has(k) && same(values[k]) !== '' : same(values[k]) !== same(b[k])));
     } catch { /* damaged copy */ }
   }
   return legacyHash(values) === saved ? [] : Object.keys(values);
@@ -138,48 +152,92 @@ async function refreshLists(book: Book, lists: Record<string, string[]>, kind: '
   await book.write(cols.map(([h, v], j) => ({ range: a1('Lists', 1, j + 1, v.length + 1, 1), values: [[h], ...v.map(x => [x])] })));
 }
 
-/* ── Governance file: tab "Governance", fixed columns, Sync column after them ── */
+/* ── Governance file: tab "Governance", columns found by their (bilingual) header, Sync column last ── */
+/** The English part of a header ("Status / الحالة" -> "Status"); an Arabic-only header is matched too. */
+function headKey(h: Cell | undefined, heads: [string, string, string][]): string | undefined {
+  const x = String(h ?? '').trim(); if (!x) return undefined;
+  const en = x.split(' / ')[0].trim().toLowerCase();
+  return heads.find(([, e, a]) => e.toLowerCase() === en || a === x || a === en)?.[0];
+}
+/** Adds the Arabic columns if missing, makes the headers bilingual, and returns where each column is. */
+async function govLayout(book: Book, tab: string): Promise<{ idx: Record<string, number>; sync: number; width: number }> {
+  const t = (await book.tab(tab))!;
+  let head = (await book.read(tab))[0] ?? [];
+  const find = () => { const o: Record<string, number> = {}; head.forEach((h, j) => { const k = headKey(h, GOV_HEAD); if (k && o[k] === undefined) o[k] = j; }); return o; };
+  let idx = find();
+  for (const [k, after] of [['Governance item AR', 'Governance item'], ['Notes AR', 'Notes']] as const) {
+    if (idx[k] !== undefined || idx[after] === undefined) continue;
+    const at = idx[after] + 1;
+    await book.batch([
+      { insertDimension: { range: { sheetId: t.sheetId, dimension: 'COLUMNS', startIndex: at, endIndex: at + 1 }, inheritFromBefore: true } },
+      { repeatCell: { range: { sheetId: t.sheetId, startRowIndex: 1, startColumnIndex: at, endColumnIndex: at + 1 },
+        cell: { userEnteredFormat: { horizontalAlignment: 'RIGHT', textDirection: 'RIGHT_TO_LEFT', wrapStrategy: 'WRAP' } },
+        fields: 'userEnteredFormat.horizontalAlignment,userEnteredFormat.textDirection,userEnteredFormat.wrapStrategy' } },
+      { updateDimensionProperties: { range: { sheetId: t.sheetId, dimension: 'COLUMNS', startIndex: at, endIndex: at + 1 }, properties: { pixelSize: 260 }, fields: 'pixelSize' } },
+    ]);
+    head = [...head.slice(0, at), GOV_HEAD.find(h => h[0] === k)![1], ...head.slice(at)];
+    idx = find();
+  }
+  for (const k of GOV_COLS) if (idx[k] === undefined) throw new Error(`Governance tab: column "${GOV_HEAD.find(h => h[0] === k)![1]}" not found`);
+  let sync = head.findIndex(h => String(h ?? '').trim() === 'Sync');
+  if (sync < 0) sync = Math.max(...Object.values(idx)) + 1;
+  // Bilingual header row (written only when it differs).
+  const want: Cell[] = head.slice(); while (want.length <= sync) want.push('');
+  for (const [k, en, ar] of GOV_HEAD) want[idx[k]] = biHead(en, ar);
+  want[sync] = 'Sync';
+  if (want.some((h, j) => String(h ?? '') !== String(head[j] ?? ''))) await book.write([{ range: a1(tab, 1, 1, 1, want.length), values: [want] }]);
+  return { idx, sync, width: Math.max(want.length, sync + 1) };
+}
+
 async function syncGovFile(book: Book): Promise<SyncResult['snapshot']> {
-  const tab = 'Governance', cols = GOV_COLS, n = cols.length, width = n + 1;
+  const tab = 'Governance', cols = GOV_COLS;
   if (!(await book.tab(tab))) throw new Error('Tab "Governance" not found');
+  const { idx, sync, width } = await govLayout(book, tab);
+  const dates = new Set([...GOV_DATE_KEYS].map(k => idx[k]));
   const data = (await book.read(tab)).slice(1).map(r => pad(r, width));
   const orig = data.map(r => r.slice());
-  const vals = (r: Cell[]) => { const v: Row = {}; cols.forEach((c, j) => { v[c] = text(r[j], GOV_DATES.has(j)); }); return v; };
+  const vals = (r: Cell[]) => { const v: Row = {}; cols.forEach(c => { v[c] = text(r[idx[c]], dates.has(idx[c])); }); return v; };
+  const ID = idx['Item ID'];
 
   const changed: SyncRow[] = [];
   data.forEach((r, i) => {
     const v = vals(r);
     if (cols.slice(1).every(c => v[c] === '')) return;
-    const saved = text(r[n]);
+    const saved = text(r[sync]);
     if (v['Item ID'] && saved === '') return;                     // never synced: DET's copy is taken
     const fields = changedFields(v, saved);
     if (fields.length) changed.push({ key: String(i + 2), values: v, fields });
   });
   const sent = changed.slice(0, PER_RUN), waiting = new Set(changed.slice(PER_RUN).map(c => c.key));
   const out = await syncGovernance(sent);
-  for (const [key, id] of Object.entries(out.ids)) { const r = data[Number(key) - 2]; if (r) r[0] = id; }
+  for (const [key, id] of Object.entries(out.ids)) { const r = data[Number(key) - 2]; if (r) r[ID] = id; }
   const byId = new Map(out.snapshot.map(v => [String(v['Item ID']), v]));
   const failed = new Set(out.errors.map(e => e.key)), gone = new Set(out.deleted);
   for (const e of out.errors) await log(book, e.key, e.message);
 
   const struck: number[] = [], unstruck: number[] = [];
   data.forEach((r, i) => {
-    const key = String(i + 2), id = text(r[0]), saved = text(r[n]);
+    const key = String(i + 2), id = text(r[ID]), saved = text(r[sync]);
     if (!id) return;
     const fresh = byId.get(id);
     byId.delete(id);
-    if (gone.has(key) || (!fresh && saved !== '' && saved !== 'edited' && saved !== 'DELETED' && !failed.has(key) && !waiting.has(key))) { r[n] = 'DELETED'; struck.push(i); return; }
+    if (gone.has(key) || (!fresh && saved !== '' && saved !== 'edited' && saved !== 'DELETED' && !failed.has(key) && !waiting.has(key))) { r[sync] = 'DELETED'; struck.push(i); return; }
     if (failed.has(key) || waiting.has(key)) return;
-    if (!fresh) { if (saved === '') r[n] = 'edited'; return; }
-    cols.forEach((c, j) => { r[j] = fresh[c] === null || fresh[c] === undefined ? '' : fresh[c] as Cell; });
-    r[n] = JSON.stringify(pick(cols, fresh));
+    if (!fresh) { if (saved === '') r[sync] = 'edited'; return; }
+    cols.forEach(c => { r[idx[c]] = fresh[c] === null || fresh[c] === undefined ? '' : fresh[c] as Cell; });
+    r[sync] = JSON.stringify(pick(cols, fresh));
     if (saved === 'DELETED') unstruck.push(i);
   });
-  const skipped = await safeWrite(book, tab, width, orig, data, GOV_DATES);
-  await strike(book, tab, struck.filter(i => !skipped.has(i)), n, true);
-  await strike(book, tab, unstruck.filter(i => !skipped.has(i)), n, false);
+  const skipped = await safeWrite(book, tab, width, orig, data, dates);
+  await strike(book, tab, struck.filter(i => !skipped.has(i)), sync, true);
+  await strike(book, tab, unstruck.filter(i => !skipped.has(i)), sync, false);
   const extra = [...byId.values()];
-  await book.append(tab, extra.map(v => [...cols.map(c => (v[c] ?? '') as Cell), JSON.stringify(pick(cols, v))]));
+  await book.append(tab, extra.map(v => {
+    const r: Cell[] = Array(width).fill('');
+    cols.forEach(c => { r[idx[c]] = (v[c] ?? '') as Cell; });
+    r[sync] = JSON.stringify(pick(cols, v));
+    return r;
+  }));
   await refreshLists(book, out.lists, 'governance');
   if (sent.length || extra.length || out.errors.length || struck.length || skipped.size) {
     await log(book, '', summary(sent.length, waiting.size, extra.length, struck.length, skipped.size, out.errors.length));
@@ -188,8 +246,45 @@ async function syncGovFile(book: Book): Promise<SyncResult['snapshot']> {
 }
 
 /* ── Tracker file (Systems Engineering, Automation): tabs Data and Description ── */
-const headerIndex = (h: Cell[]) => { const o: Record<string, number> = {}; h.forEach((x, j) => { o[String(x ?? '').trim()] = j; }); return o; };
+const headerIndex = (h: Cell[]) => {
+  const o: Record<string, number> = {};
+  h.forEach((x, j) => { const full = String(x ?? '').trim(), en = full.split(' / ')[0].trim(); if (o[full] === undefined) o[full] = j; if (o[en] === undefined) o[en] = j; });
+  return o;
+};
 const dateCols = (h: Cell[]) => new Set(h.map((x, j) => (/date/i.test(String(x ?? '')) ? j : -1)).filter(j => j >= 0));
+
+/**
+ * The Description tab gets a "Data Governance (Arabic)" column next to "Data Governance", for the governance officer.
+ * Rows with an English note and no Arabic note are highlighted. Returns the new tab width.
+ */
+async function descArabicColumn(book: Book, eh: string[], ew: number): Promise<number> {
+  const E = headerIndex(eh);
+  const t = (await book.tab('Description'))!;
+  if (E['Data Governance'] === undefined) return ew;
+  const writes: { range: string; values: Cell[][] }[] = [];
+  if (!eh[E['Data Governance']].includes(' / ')) writes.push({ range: a1('Description', 1, E['Data Governance'] + 1), values: [[biHead('Data Governance', 'حوكمة البيانات')]] });
+  if (E[DG_AR] === undefined) {
+    const at = ew;   // a new column at the end of the tab
+    if (t.cols < at + 1) await book.batch([{ appendDimension: { sheetId: t.sheetId, dimension: 'COLUMNS', length: at + 1 - t.cols } }]);
+    writes.push({ range: a1('Description', 1, at + 1), values: [[biHead(DG_AR, 'حوكمة البيانات (عربي)')]] });
+    const en = colLetter(E['Data Governance'] + 1), ar = colLetter(at + 1);
+    await book.batch([
+      { repeatCell: { range: { sheetId: t.sheetId, startRowIndex: 1, startColumnIndex: at, endColumnIndex: at + 1 },
+        cell: { userEnteredFormat: { horizontalAlignment: 'RIGHT', textDirection: 'RIGHT_TO_LEFT', wrapStrategy: 'WRAP', verticalAlignment: 'TOP' } },
+        fields: 'userEnteredFormat.horizontalAlignment,userEnteredFormat.textDirection,userEnteredFormat.wrapStrategy,userEnteredFormat.verticalAlignment' } },
+      { repeatCell: { range: grid(t.sheetId, 1, at + 1, 1, 1), cell: { userEnteredFormat: { backgroundColor: TEAL, textFormat: { bold: true, foregroundColor: { red: 1, green: 1, blue: 1 } } } }, fields: 'userEnteredFormat.backgroundColor,userEnteredFormat.textFormat' } },
+      { updateDimensionProperties: { range: { sheetId: t.sheetId, dimension: 'COLUMNS', startIndex: at, endIndex: at + 1 }, properties: { pixelSize: 320 }, fields: 'pixelSize' } },
+      { addConditionalFormatRule: { index: 0, rule: {
+        ranges: [{ sheetId: t.sheetId, startRowIndex: 1, startColumnIndex: at, endColumnIndex: at + 1 }],
+        booleanRule: { condition: { type: 'CUSTOM_FORMULA', values: [{ userEnteredValue: `=AND($${en}2<>"",$${ar}2="")` }] }, format: { backgroundColor: YELLOW } },
+      } } },
+    ]);
+    eh.push(...Array(Math.max(0, at - eh.length)).fill(''), DG_AR);
+    ew = at + 1;
+  }
+  await book.write(writes);
+  return ew;
+}
 
 async function syncTrackerFile(book: Book, section: 'SYSTEMS_ENGINEERING' | 'AUTOMATION', sectionName: string) {
   if (!(await book.tab('Data')) || !(await book.tab('Description'))) throw new Error('Tabs "Data" and "Description" are needed');
@@ -211,7 +306,8 @@ async function syncTrackerFile(book: Book, section: 'SYSTEMS_ENGINEERING' | 'AUT
 
   const eAll = await book.read('Description');
   const eh = (eAll[0] ?? []).map(x => String(x ?? '').trim());
-  const ew = Math.max(eh.length, ...eAll.map(r => r.length));
+  let ew = Math.max(eh.length, ...eAll.map(r => r.length));
+  ew = await descArabicColumn(book, eh, ew);
   const E = headerIndex(eh);
   const desc = eAll.slice(1).map(r => pad(r, ew));
   const eOrig = desc.map(r => r.slice());
@@ -276,10 +372,11 @@ async function syncTrackerFile(book: Book, section: 'SYSTEMS_ENGINEERING' | 'AUT
     set(r, D, 'Governance', v['Governance']); set(r, D, 'Late', v['Late']);
     const bullets = String(v['Description'] ?? '').split('\n').filter(Boolean).map(x => `• ${x}`).join('\n');
     let d = descOf.get(String(v['Order ID']));
-    if (!d && (bullets || v['Narrative'])) { d = eh.map(() => '' as Cell); while (d.length < ew) d.push(''); newDesc.push(d); descOf.set(String(v['Order ID']), d); }
+    if (!d && (bullets || v['Narrative'] || v['Gov note'] || v['Gov note AR'])) { d = eh.map(() => '' as Cell); while (d.length < ew) d.push(''); newDesc.push(d); descOf.set(String(v['Order ID']), d); }
     if (d) {
       set(d, E, 'Order ID', v['Order ID']); set(d, E, 'Unit Code', v['Unit code']); set(d, E, 'Task/Subtask Name', v['Order']);
       set(d, E, 'Weekly Bullet', bullets); set(d, E, 'Weekly Narrative', v['Narrative'] || '');
+      set(d, E, 'Data Governance', v['Gov note'] || ''); set(d, E, DG_AR, v['Gov note AR'] || '');
     }
     r[D['Sync']] = JSON.stringify(values(r, d));
   };
@@ -326,24 +423,25 @@ async function mirrorGovernance(items: SyncResult['snapshot']) {
       const D = headerIndex(dv[0]), dDates = dateCols(dv[0]);
       const byId = new Map<string, Cell[]>(), mine = new Set<string>();
       dv.slice(1).forEach(r => { const id = text(r[D['Order ID']]), pj = text(r[D['Project Name']]); if (pj) mine.add(pj.toLowerCase()); if (id) byId.set(id, r); });
-      const updates: { when: string; project: string; id: string; task: string; what: string; domain: string }[] = [];
+      const updates: { when: string; project: string; id: string; task: string; what: string; whatAr: string; domain: string }[] = [];
       const desc = (await book.tab('Description')) ? await book.read('Description') : [];
       if (desc.length > 1) {
         const E = headerIndex(desc[0]);
         if (E['Data Governance'] !== undefined) {
           for (const r of desc.slice(1)) {
             const note = text(r[E['Data Governance']]), id = text(r[E['Order ID']]);
-            if (!note || !id) continue;
+            const noteAr = E[DG_AR] !== undefined ? text(r[E[DG_AR]]) : '';
+            if ((!note && !noteAr) || !id) continue;
             const d = byId.get(id) ?? [];
             const when = text(d[D['Start Date']], dDates.has(D['Start Date'])) || text(d[D['Due Date']], dDates.has(D['Due Date']));
             const cut = note.indexOf(': ');
             const domain = cut > 0 ? note.slice(0, cut) : 'Data Governance', raw = cut > 0 ? note.slice(cut + 2) : note;
-            updates.push({ when, project: text(d[D['Project Name']]), id, task: text(d[D['Task/Subtask Name']]) || text(r[E['Task/Subtask Name']]), what: raw.charAt(0).toUpperCase() + raw.slice(1), domain });
+            updates.push({ when, project: text(d[D['Project Name']]), id, task: text(d[D['Task/Subtask Name']]) || text(r[E['Task/Subtask Name']]), what: raw.charAt(0).toUpperCase() + raw.slice(1), whatAr: noteAr, domain });
           }
         }
       }
       updates.sort((x, y) => (x.when || '9999').localeCompare(y.when || '9999') || x.id.localeCompare(y.id));
-      updates.forEach(u => all.push([u.when, f.name, u.project, u.id, u.task, u.what, u.domain]));
+      updates.forEach(u => all.push([u.when, f.name, u.project, u.id, u.task, u.whatAr, u.what, u.domain]));
 
       const t = await book.tab('Data Governance');
       if (!t) continue;
@@ -352,10 +450,10 @@ async function mirrorGovernance(items: SyncResult['snapshot']) {
       if (s2 < 0) continue;
       const start = s2 + 2;
       const last = Math.max(gv.length, start);
-      const govRows: Cell[][] = items.filter(g => g['About'] === 'Project' && mine.has(String(g['Project or unit'] ?? '').trim().toLowerCase()))
-        .map(g => [g['Item ID'], g['Project or unit'], g['Governance item'], g['Type'], g['Owner'], g['Status'], g['Next review'] || '', g['Notes']].map(x => (x ?? '') as Cell));
-      const out: Cell[][] = [['Date', 'Project', 'What changed', 'Order ID', 'NDMO domain', '', '', ''],
-        ...updates.map(u => [u.when, u.project, u.what, u.id, u.domain, '', '', ''] as Cell[]),
+      const govRows: Cell[][] = items.filter(g => String(g['About'] ?? '').startsWith('Project') && mine.has(String(g['Project or unit'] ?? '').trim().toLowerCase()))
+        .map(g => [g['Item ID'], g['Project or unit'], g['Governance item'] || g['Governance item AR'], g['Type'], g['Owner'], g['Status'], g['Next review'] || '', g['Notes'] || g['Notes AR']].map(x => (x ?? '') as Cell));
+      const out: Cell[][] = [['Date', 'Project', 'What changed', 'Order ID', 'NDMO domain', 'What changed (Arabic) / التحديث بالعربي', '', ''],
+        ...updates.map(u => [u.when, u.project, u.what, u.id, u.domain, u.whatAr, '', ''] as Cell[]),
         ['', '', '', '', '', '', '', ''],
         ['3. Governance items (kept in step with the Governance file every 5 minutes; edit items there)', '', '', '', '', '', '', ''],
         ['Item ID', 'Project', 'Governance item', 'Type', 'Owner', 'Status', 'Next review', 'Notes'], ...govRows];
@@ -368,7 +466,7 @@ async function mirrorGovernance(items: SyncResult['snapshot']) {
       ]);
       await book.write([{ range: a1('Data Governance', start, 2, out.length, 8), values: out }]);
       await book.batch([
-        head(start, 5), head(s3 + 1, 8),
+        head(start, 6), head(s3 + 1, 8),
         { repeatCell: { range: grid(t.sheetId, s3, 2, 1, 1), cell: { userEnteredFormat: { textFormat: { bold: true, fontSize: 12, foregroundColor: TEAL } } }, fields: 'userEnteredFormat.textFormat' } },
         ...(updates.length ? [{ repeatCell: { range: grid(t.sheetId, start + 1, 2, updates.length, 1), cell: { userEnteredFormat: { numberFormat: { type: 'DATE', pattern: 'dd mmm yyyy' } } }, fields: 'userEnteredFormat.numberFormat' } }] : []),
       ]);
@@ -378,16 +476,19 @@ async function mirrorGovernance(items: SyncResult['snapshot']) {
   try {
     let t = await gov.tab('Team Updates');
     if (!t) t = await gov.addTab('Team Updates', { index: 1 });
-    const rows: Cell[][] = [['Date', 'Section', 'Project', 'Order ID', 'Task', 'Data governance update', 'NDMO domain'], ...all];
+    const rows: Cell[][] = [[biHead('Date', 'التاريخ'), biHead('Section', 'القسم'), biHead('Project', 'المشروع'), biHead('Order ID', 'رقم الطلب'),
+      biHead('Task', 'المهمة'), 'تحديث حوكمة البيانات (عربي)', 'Data governance update (English)', biHead('NDMO domain', 'مجال مكتب إدارة البيانات الوطنية')], ...all];
     await gov.clear([`'Team Updates'`]);
     await gov.batch([
       { repeatCell: { range: { sheetId: t.sheetId }, cell: { userEnteredFormat: {} }, fields: 'userEnteredFormat' } },
       { updateSheetProperties: { properties: { sheetId: t.sheetId, gridProperties: { frozenRowCount: 1 } }, fields: 'gridProperties.frozenRowCount' } },
     ]);
-    await gov.write([{ range: a1('Team Updates', 1, 1, rows.length, 7), values: rows }]);
+    await gov.write([{ range: a1('Team Updates', 1, 1, rows.length, 8), values: rows }]);
     await gov.batch([
-      { repeatCell: { range: grid(t.sheetId, 1, 1, rows.length, 7), cell: { userEnteredFormat: { wrapStrategy: 'WRAP', verticalAlignment: 'TOP' } }, fields: 'userEnteredFormat.wrapStrategy,userEnteredFormat.verticalAlignment' } },
-      { repeatCell: { range: grid(t.sheetId, 1, 1, 1, 7), cell: { userEnteredFormat: { backgroundColor: TEAL, textFormat: { bold: true, foregroundColor: { red: 1, green: 1, blue: 1 } } } }, fields: 'userEnteredFormat.backgroundColor,userEnteredFormat.textFormat' } },
+      { repeatCell: { range: grid(t.sheetId, 1, 1, rows.length, 8), cell: { userEnteredFormat: { wrapStrategy: 'WRAP', verticalAlignment: 'TOP' } }, fields: 'userEnteredFormat.wrapStrategy,userEnteredFormat.verticalAlignment' } },
+      { repeatCell: { range: grid(t.sheetId, 2, 6, Math.max(1, rows.length - 1), 1), cell: { userEnteredFormat: { horizontalAlignment: 'RIGHT', textDirection: 'RIGHT_TO_LEFT' } }, fields: 'userEnteredFormat.horizontalAlignment,userEnteredFormat.textDirection' } },
+      { updateDimensionProperties: { range: { sheetId: t.sheetId, dimension: 'COLUMNS', startIndex: 5, endIndex: 7 }, properties: { pixelSize: 320 }, fields: 'pixelSize' } },
+      { repeatCell: { range: grid(t.sheetId, 1, 1, 1, 8), cell: { userEnteredFormat: { backgroundColor: TEAL, textFormat: { bold: true, foregroundColor: { red: 1, green: 1, blue: 1 } } } }, fields: 'userEnteredFormat.backgroundColor,userEnteredFormat.textFormat' } },
       ...(all.length ? [{ repeatCell: { range: grid(t.sheetId, 2, 1, all.length, 1), cell: { userEnteredFormat: { numberFormat: { type: 'DATE', pattern: 'dd mmm yyyy' } } }, fields: 'userEnteredFormat.numberFormat' } }] : []),
     ]);
   } catch (e) { await log(gov, '', `Team Updates tab: ${(e as Error).message}`); }

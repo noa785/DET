@@ -3,8 +3,9 @@
 // Orders keep the tracker Excel's row order.
 
 import { Fragment, useEffect, useMemo, useState } from 'react';
-import { BUCKETS, BUCKET_KEYS, NO_PROJECT, SECTIONS, fdate, isLate, pct, type Bucket, type DetOrder, type DetProject, type DetUnit, type SectionKey } from '@/lib/det/shared';
-import { DateHeader, GovPill, Icon, NO_FILTERS, OrderFilters, PageHeader, Person, Progress, StatusPill, applyOrderFilters, type OrderFilterState } from '@/components/det/ui';
+import { BUCKETS, BUCKET_KEYS, NO_PROJECT, SECTIONS, isLate, pct, type Bucket, type DetOrder, type DetProject, type DetUnit, type SectionKey } from '@/lib/det/shared';
+import { DateHeader, GovPill, Icon, NO_FILTERS, OrderFilters, PageHeader, Person, Progress, StatusPill, applyOrderFilters, fdateIn, type OrderFilterState } from '@/components/det/ui';
+import { useLang } from '@/lib/i18n/client';
 import OrderDrawer from '@/components/det/OrderDrawer';
 import Link from 'next/link';
 
@@ -13,6 +14,7 @@ const PAGE = 50;
 export default function OrdersClient({ section, initial, owners, units, projects: initialProjects = [], openId, canEdit = true }: {
   section: SectionKey; initial: DetOrder[]; owners: string[]; units: DetUnit[]; projects?: DetProject[]; openId: string | null; canEdit?: boolean;
 }) {
+  const { t, lang } = useLang();
   const [orders, setOrders] = useState(initial);
   const [projects, setProjects] = useState(initialProjects);
   const [filter, setFilter] = useState<'ALL' | Bucket>('ALL');
@@ -52,21 +54,21 @@ export default function OrdersClient({ section, initial, owners, units, projects
 
   return (
     <>
-      <PageHeader section={section} title="All Orders" sub={canEdit ? 'Click any order to update its progress.' : `View only. ${SECTIONS[section].name} is updated by its own team.`} />
+      <PageHeader section={section} title={t('All Orders')} sub={canEdit ? t('Click any order to update its progress.') : t('View only. {section} is updated by its own team.', { section: t(SECTIONS[section].name) })} />
       <div className="card">
         <div className="toolbar">
           <div className="chips">
-            <button className={`chip${filter === 'ALL' ? ' on' : ''}`} onClick={() => setFilter('ALL')}>All <span className="n">{scoped.length}</span></button>
+            <button className={`chip${filter === 'ALL' ? ' on' : ''}`} onClick={() => setFilter('ALL')}>{t('All')} <span className="n">{scoped.length}</span></button>
             {BUCKET_KEYS.map(k => (
-              <button key={k} className={`chip${filter === k ? ' on' : ''}`} onClick={() => setFilter(k)}>{BUCKETS[k].label} <span className="n">{count(k)}</span></button>
+              <button key={k} className={`chip${filter === k ? ' on' : ''}`} onClick={() => setFilter(k)}>{t(BUCKETS[k].label)} <span className="n">{count(k)}</span></button>
             ))}
           </div>
-          <div className="tb-search"><Icon name="search" size={15} /><input value={q} onChange={e => setQ(e.target.value)} placeholder="Search orders" /></div>
+          <div className="tb-search"><Icon name="search" size={15} /><input value={q} onChange={e => setQ(e.target.value)} placeholder={t('Search orders')} /></div>
         </div>
         <OrderFilters orders={orders} units={units} value={f} onChange={setF} shown={list.length} />
         <div className="tbl-wrap">
           <table>
-            <thead><tr><th>Order</th><th>Project</th><th>Unit</th><th>Responsible</th><th>Status</th><th>Progress</th><th><DateHeader field="start" value={f} onChange={setF} /></th><th><DateHeader field="due" value={f} onChange={setF} /></th><th>Governance</th></tr></thead>
+            <thead><tr><th>{t('Order')}</th><th>{t('Project')}</th><th>{t('Unit')}</th><th>{t('Responsible')}</th><th>{t('Status')}</th><th>{t('Progress')}</th><th><DateHeader field="start" value={f} onChange={setF} /></th><th><DateHeader field="due" value={f} onChange={setF} /></th><th>{t('Governance')}</th></tr></thead>
             <tbody>
               {shown.map((o, i) => {
                 const k = o.projectName || NO_PROJECT;
@@ -76,8 +78,8 @@ export default function OrdersClient({ section, initial, owners, units, projects
                 <Fragment key={o.id}>
                 {head && (
                   <tr className="proj-row"><td colSpan={9}>
-                    <Icon name="folder" size={15} /><b>{k}</b>{o.projectCode && <span className="t-code">{o.projectCode}</span>}
-                    {g && <span className="muted">{g.n} order{g.n === 1 ? '' : 's'} · {pct(g.done, g.n)}% done</span>}
+                    <Icon name="folder" size={15} /><b>{k === NO_PROJECT ? t(NO_PROJECT) : k}</b>{o.projectCode && <span className="t-code">{o.projectCode}</span>}
+                    {g && <span className="muted">{t(g.n === 1 ? '{n} order · {p}% done' : '{n} orders · {p}% done', { n: g.n, p: pct(g.done, g.n) })}</span>}
                   </td></tr>
                 )}
                 <tr className={`click${flash === o.id ? ' new' : ''}`} onClick={() => setOpenOrder(o)}>
@@ -87,8 +89,8 @@ export default function OrdersClient({ section, initial, owners, units, projects
                   <td><Person name={o.owner} /></td>
                   <td><StatusPill bucket={o.bucket} /></td>
                   <td><Progress value={o.progress} /></td>
-                  <td style={{ whiteSpace: 'nowrap' }}>{o.start ? fdate(o.start) : <span className="muted">-</span>}</td>
-                  <td className={isLate(o) ? 'over' : ''} style={{ whiteSpace: 'nowrap' }}>{fdate(o.due)}{isLate(o) ? ' · late' : ''}</td>
+                  <td style={{ whiteSpace: 'nowrap' }}>{o.start ? fdateIn(lang, o.start) : <span className="muted">-</span>}</td>
+                  <td className={isLate(o) ? 'over' : ''} style={{ whiteSpace: 'nowrap' }}>{fdateIn(lang, o.due)}{isLate(o) ? ` · ${t('late')}` : ''}</td>
                   <td><GovPill gov={o.gov} /></td>
                 </tr>
                 </Fragment>
@@ -96,8 +98,8 @@ export default function OrdersClient({ section, initial, owners, units, projects
               })}
               {!shown.length && (
                 <tr><td colSpan={9}><div className="empty">
-                  <b>{orders.length ? 'No orders match' : 'No orders here yet'}</b>
-                  {orders.length ? 'Try another filter or search, or clear the filters.' : canEdit ? <>Use <Link href={`/work/${SECTIONS[section].slug}/new`} className="link">Add Order</Link> to create the first one.</> : 'This section has no orders yet.'}
+                  <b>{t(orders.length ? 'No orders match' : 'No orders here yet')}</b>
+                  {orders.length ? t('Try another filter or search, or clear the filters.') : canEdit ? <>{t('Use')} <Link href={`/work/${SECTIONS[section].slug}/new`} className="link">{t('Add Order')}</Link> {t('to create the first one.')}</> : t('This section has no orders yet.')}
                 </div></td></tr>
               )}
             </tbody>
@@ -105,8 +107,8 @@ export default function OrdersClient({ section, initial, owners, units, projects
         </div>
         {list.length > shown.length && (
           <div className="pager">
-            <span>Showing {shown.length} of {list.length}</span>
-            <button className="btn" onClick={() => setPage(p => p + 1)}>Show more</button>
+            <span>{t('Showing {shown} of {total}', { shown: shown.length, total: list.length })}</span>
+            <button className="btn" onClick={() => setPage(p => p + 1)}>{t('Show more')}</button>
           </div>
         )}
       </div>

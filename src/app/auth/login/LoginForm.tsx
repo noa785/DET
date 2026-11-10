@@ -6,12 +6,15 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 import { DetMark } from '@/components/det/ui';
+import { LangSwitch, useLang } from '@/lib/i18n/client';
 import '@/styles/det.css';
+import '@/styles/det-rtl.css';
 
 const TITLE = 'Digital Enterprise Tracker';
 
 export default function LoginForm() {
   const router = useRouter();
+  const { t, lang } = useLang();
   const params = useSearchParams();
   const redirectTo = params.get('redirect') || '/kpis';
 
@@ -102,11 +105,11 @@ export default function LoginForm() {
     e.preventDefault();
     setError('');
     const em = email.trim().toLowerCase();
-    if (!em || !password) return fail('Please enter your email and password.');
-    if (!/^\S+@\S+\.\S+$/.test(em)) return fail('Please enter a valid email address.');
+    if (!em || !password) return fail(t('Please enter your email and password.'));
+    if (!/^\S+@\S+\.\S+$/.test(em)) return fail(t('Please enter a valid email address.'));
     setLoading(true);
     const { error: authError } = await createSupabaseBrowserClient().auth.signInWithPassword({ email: em, password });
-    if (authError) { setLoading(false); return fail('Invalid email or password.'); }
+    if (authError) { setLoading(false); return fail(t('Invalid email or password.')); }
     // Record the sign-in in the Admin Log (never blocks signing in)
     await fetch('/api/work/activity', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'LOGIN' }) }).catch(() => null);
     router.push(redirectTo);
@@ -114,19 +117,29 @@ export default function LoginForm() {
   }
 
   let k = 0;
-  const words = TITLE.split(' ');
+  const title = t(TITLE);
+  const words = title.split(' ');
 
   return (
     <div className="det-login">
+      <style dangerouslySetInnerHTML={{ __html: `.det-login .login-lang-wrap{position:fixed;top:22px;right:24px;z-index:20}
+.det-login .login-lang{font:600 13px/1 'IBM Plex Sans Arabic','IBM Plex Sans',sans-serif;padding:8px 14px;border-radius:999px;cursor:pointer;transition:background .2s,color .2s,border-color .2s}
+.det-login .login-lang-wrap.on-welcome .login-lang{color:#fff;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.3)}
+.det-login .login-lang-wrap.on-welcome .login-lang:hover{background:rgba(255,255,255,.18)}
+.det-login .login-lang-wrap.on-login .login-lang{color:var(--teal);background:#fff;border:1px solid var(--border, rgba(0,0,0,.12))}
+.det-login .login-lang-wrap.on-login .login-lang:hover{border-color:var(--teal)}` }} />
+      <div className={`login-lang-wrap ${stage === 'welcome' ? 'on-welcome' : 'on-login'}`}>
+        <LangSwitch className="login-lang" />
+      </div>
       {/* 1) Welcome */}
       <section id="welcome" className={`screen${gone ? ' gone' : ''}`} aria-hidden={stage !== 'welcome'}>
         <canvas id="net" ref={netRef} />
         <div className="wmark" aria-hidden="true" /><div className="wmark l" aria-hidden="true" />
         <div className="corner fade" style={{ animationDelay: '.3s' }}>
-          <img src="/brand/pnu-logo-white.svg" alt="Princess Nourah bint Abdulrahman University" />
+          <img src="/brand/pnu-logo-white.svg" alt={t('Princess Nourah bint Abdulrahman University')} />
           <div className="corner-t">
-            <span className="c-uni">Princess Nourah bint Abdulrahman University</span>
-            <span className="c-eli">English Language Institute</span>
+            <span className="c-uni">{t('Princess Nourah bint Abdulrahman University')}</span>
+            <span className="c-eli">{t('English Language Institute')}</span>
           </div>
         </div>
         <div className="welcome-inner">
@@ -137,22 +150,23 @@ export default function LoginForm() {
             </div>
             <div className="emblem-core"><DetMark variant="dark" /></div>
           </div>
-          <p className="eyebrow fade" style={{ animationDelay: '1.6s' }}>Welcome to</p>
-          <h1 className={`title${shine ? ' shine' : ''}`} aria-label={TITLE}>
+          <p className="eyebrow fade" style={{ animationDelay: '1.6s' }}>{t('Welcome to')}</p>
+          <h1 className={`title${shine ? ' shine' : ''}`} aria-label={title}>
             {words.map((w, wi) => (
               <span key={wi}>
                 <span className="w" aria-hidden="true">
-                  {[...w].map((c, ci) => <span key={ci} className="ch" style={{ animationDelay: `${1.8 + k++ * 0.035}s` }}>{c}</span>)}
+                  {/* Arabic letters must stay joined, so Arabic words arrive whole */}
+                  {(lang === 'ar' ? [w] : [...w]).map((c, ci) => <span key={ci} className="ch" style={{ animationDelay: `${1.8 + k++ * (lang === 'ar' ? 0.12 : 0.035)}s` }}>{c}</span>)}
                 </span>{wi < words.length - 1 ? ' ' : ''}
               </span>
             ))}
           </h1>
           <button className="cta fade" style={{ animationDelay: '2.9s' }} onClick={e => toLogin(e.currentTarget)}>
-            Enter the system
+            {t('Enter the system')}
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
           </button>
         </div>
-        <p className="foot fade" style={{ animationDelay: '3.2s' }}>Digital Transformation Committee · ELI · PNU</p>
+        <p className="foot fade" style={{ animationDelay: '3.2s' }}>{t('Digital Transformation Committee · ELI · PNU')}</p>
       </section>
 
       {/* 2) Sign in */}
@@ -163,7 +177,7 @@ export default function LoginForm() {
         <div className="wmark" aria-hidden="true" />
         <button className="back" type="button" onClick={toWelcome}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M11 6l-6 6 6 6" /></svg>
-          Back
+          {t('Back')}
         </button>
         <div className="login-wrap">
           <div className="head stagger s1">
@@ -174,8 +188,8 @@ export default function LoginForm() {
           <div className="card stagger s2" ref={cardRef}>
             <div className="card-in">
               <div className="glare" />
-              <h1>Sign in</h1>
-              <p className="sub">to <b>Digital Enterprise Tracker</b></p>
+              <h1>{t('Sign in')}</h1>
+              <p className="sub">{t('to')} <b>{title}</b></p>
               {error && (
                 <div className="error show" role="alert" key={errKey}>
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M12 8v4M12 16h.01" /></svg>
@@ -185,14 +199,14 @@ export default function LoginForm() {
               <form onSubmit={submit} noValidate>
                 <div className="field">
                   <input ref={emailRef} type="email" id="email" placeholder=" " autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} />
-                  <label htmlFor="email">Email address</label>
+                  <label htmlFor="email">{t('Email address')}</label>
                   <svg className="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="20" height="16" rx="3" /><path d="M22 7l-10 6L2 7" /></svg>
                 </div>
                 <div className="field">
                   <input type={showPw ? 'text' : 'password'} id="password" placeholder=" " autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} />
-                  <label htmlFor="password">Password</label>
+                  <label htmlFor="password">{t('Password')}</label>
                   <svg className="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="11" width="16" height="10" rx="2.5" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></svg>
-                  <button type="button" className="toggle-pw" onClick={() => setShowPw(s => !s)} aria-label={showPw ? 'Hide password' : 'Show password'}>
+                  <button type="button" className="toggle-pw" onClick={() => setShowPw(s => !s)} aria-label={showPw ? t('Hide password') : t('Show password')}>
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                       {showPw
                         ? <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19M1 1l22 22" />
@@ -201,18 +215,18 @@ export default function LoginForm() {
                   </button>
                 </div>
                 <button type="submit" className={`submit${loading ? ' loading' : ''}`} disabled={loading}>
-                  <span className="label">Sign in</span><span className="spinner" />
+                  <span className="label">{t('Sign in')}</span><span className="spinner" />
                 </button>
               </form>
               <p className="secure">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>
-                Secure institutional access
+                {t('Secure institutional access')}
               </p>
             </div>
           </div>
           <p className="credit stagger s3">
-            Designed &amp; developed by <b>Nora Aldossari</b><br />
-            Digital Transformation Committee · ELI · PNU · 2026
+            {t('Designed & developed by')} <b>{t('Nora Aldossari')}</b><br />
+            {t('Digital Transformation Committee · ELI · PNU')} · 2026
           </p>
         </div>
       </section>

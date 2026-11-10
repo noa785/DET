@@ -20,6 +20,7 @@ const CreateSchema = z.object({
   narrative: z.string().trim().max(10000).optional().default(''),
   govStatus: z.enum(['NOT_REQUIRED', 'PENDING', 'APPROVED']).optional().default('NOT_REQUIRED'),
   govNote:   z.string().trim().max(5000).optional().default(''),
+  govNoteAr: z.string().trim().max(5000).optional().default(''),
 });
 
 export async function POST(req: NextRequest) {
@@ -53,6 +54,7 @@ export async function POST(req: NextRequest) {
       percentComplete: 0,
       govStatus: b.govStatus,
       govNote: b.govNote || null,
+      govNoteAr: b.govNoteAr || null,
       govReviewRequired: b.govStatus !== 'NOT_REQUIRED',
       createdById: user.id,
       updatedById: user.id,

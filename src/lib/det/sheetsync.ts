@@ -14,10 +14,21 @@ import {
   BUCKETS, GOV, GOV_ITEM_STATUS, GOV_ITEM_STATUS_KEYS, GOV_ITEM_TYPE, GOV_ITEM_TYPE_KEYS, bucketOf,
   type Bucket, type DbStatus, type DetGov, type GovItemStatus, type GovItemType, type GovStatus, type SectionKey,
 } from './shared';
+import { translate } from '@/lib/i18n/core';
+import { AR_SHEET } from '@/lib/i18n/ar/sync';
 
 /* ── Sheet columns (the order the script uses) ─────────────────────────────── */
-export const ORDER_COLUMNS = ['Order ID', 'Project', 'Order', 'Responsible', 'Unit', 'Start date', 'Due date', 'Progress %', 'Status', 'Governance', 'Description', 'Narrative'] as const;
-export const GOV_COLUMNS = ['Item ID', 'About', 'Project or unit', 'Governance item', 'Type', 'Owner', 'Status', 'Due date', 'Last review', 'Next review', 'Evidence link', 'Notes'] as const;
+export const ORDER_COLUMNS = ['Order ID', 'Project', 'Order', 'Responsible', 'Unit', 'Start date', 'Due date', 'Progress %', 'Status', 'Governance', 'Description', 'Narrative', 'Gov note', 'Gov note AR'] as const;
+export const GOV_COLUMNS = ['Item ID', 'About', 'Project or unit', 'Governance item', 'Governance item AR', 'Type', 'Owner', 'Status', 'Due date', 'Last review', 'Next review', 'Evidence link', 'Notes', 'Notes AR'] as const;
+
+/** A label in both languages, as the Governance file shows it: "Planned / مخطط". */
+export const bi = (en: string) => { const ar = AR_SHEET[en] ?? translate('ar', en); return ar && ar !== en ? `${en} / ${ar}` : en; };
+/** Does a cell (English, Arabic, or "English / Arabic") mean this label? */
+function means(v: unknown, ...labels: string[]): boolean {
+  const parts = str(v).split('/').map(x => x.trim()).filter(Boolean);
+  const cands = labels.flatMap(l => [l, AR_SHEET[l] ?? '', translate('ar', l)]);
+  return parts.some(p => cands.some(c => c && (p.toLowerCase() === c.toLowerCase() || (norm(p) !== '' && norm(p) === norm(c)))));
+}
 export const ORDER_STATUS_LABELS = ['Not started', 'In progress', 'Stuck', 'Done', 'Cancelled'];
 export const ORDER_GOV_LABELS = ['Not required', 'Waiting review', 'Approved'];
 
@@ -88,7 +99,7 @@ async function lists(section?: SectionKey) {
   return {
     projects: projects.map(p => p.name), units: units.map(u => u.name),
     orderStatus: ORDER_STATUS_LABELS, orderGovernance: ORDER_GOV_LABELS,
-    govAbout: ['Project', 'Unit'], govType: GOV_ITEM_TYPE_KEYS.map(k => GOV_ITEM_TYPE[k]), govStatus: GOV_ITEM_STATUS_KEYS.map(k => GOV_ITEM_STATUS[k].label),
+    govAbout: ['Project', 'Unit'].map(bi), govType: GOV_ITEM_TYPE_KEYS.map(k => bi(GOV_ITEM_TYPE[k])), govStatus: GOV_ITEM_STATUS_KEYS.map(k => bi(GOV_ITEM_STATUS[k].label)),
   };
 }
 
@@ -97,11 +108,13 @@ const ORDER_ROW_SELECT = {
   orderCode: true, name: true, ownerName: true, startDate: true, dueDate: true, percentComplete: true, status: true, govStatus: true,
   unit: { select: { name: true, code: true } }, project: { select: { name: true, code: true } },
   owner: { select: { name: true } }, description: { select: { bulletSummary: true, narrativeSummary: true } },
+  govNote: true, govNoteAr: true,
 } as const;
 type OrderRowSrc = {
   orderCode: string; name: string; ownerName: string | null; startDate: Date | null; dueDate: Date | null; percentComplete: number;
   status: string; govStatus: string; unit: { name: string; code: string } | null; project: { name: string; code: string } | null; owner: { name: string } | null;
   description: { bulletSummary: string | null; narrativeSummary: string | null } | null;
+  govNote: string | null; govNoteAr: string | null;
 };
 function orderRow(o: OrderRowSrc): Row {
   return {
@@ -110,6 +123,7 @@ function orderRow(o: OrderRowSrc): Row {
     'Status': statusLabel(o.status), 'Governance': GOV[o.govStatus as GovStatus]?.label ?? 'Not required',
     'Description': (o.description?.bulletSummary ?? '').split('\n').map(s => s.trim()).filter(Boolean).join('\n'),
     'Narrative': o.description?.narrativeSummary ?? '',
+    'Gov note': o.govNote ?? '', 'Gov note AR': o.govNoteAr ?? '',
     // Extra fields for the tracker file layout (Data tab); the simple sheet ignores them.
     'Status detail': STATUS_WORD[o.status as DbStatus] ?? statusLabel(o.status), 'Project code': o.project?.code ?? '', 'Unit code': o.unit?.code ?? '',
     'Late': o.status !== 'DONE' && o.status !== 'CANCELLED' && !!o.dueDate && iso(o.dueDate) < new Date().toISOString().slice(0, 10) ? 'Yes' : 'No',
@@ -166,6 +180,7 @@ export async function syncOrders(section: SectionKey, rows: SyncRow[]): Promise<
         name, ownerName: str(v['Responsible']) || null, unitId, projectId,
         startDate: toDate(start), dueDate: toDate(due),
         status, percentComplete: progress, govStatus: gov, govReviewRequired: gov !== 'NOT_REQUIRED',
+        govNote: str(v['Gov note']) || null, govNoteAr: str(v['Gov note AR']) || null,
         updatedById: owner?.id ?? null,
       };
       if (existing) {
@@ -206,10 +221,10 @@ export async function syncOrders(section: SectionKey, rows: SyncRow[]): Promise<
 /* ── Governance sheet ─────────────────────────────────────────────────────── */
 function govRow(g: DetGov): Row {
   return {
-    'Item ID': g.code, 'About': g.scope === 'PROJECT' ? 'Project' : 'Unit',
-    'Project or unit': (g.scope === 'PROJECT' ? g.projectName : g.unitName) ?? '', 'Governance item': g.title,
-    'Type': GOV_ITEM_TYPE[g.type] ?? 'Other', 'Owner': g.owner, 'Status': GOV_ITEM_STATUS[g.status]?.label ?? 'Planned',
-    'Due date': g.due ?? '', 'Last review': g.lastReview ?? '', 'Next review': g.nextReview ?? '', 'Evidence link': g.evidence, 'Notes': g.notes,
+    'Item ID': g.code, 'About': bi(g.scope === 'PROJECT' ? 'Project' : 'Unit'),
+    'Project or unit': (g.scope === 'PROJECT' ? g.projectName : g.unitName) ?? '', 'Governance item': g.title === g.titleAr ? '' : g.title, 'Governance item AR': g.titleAr,
+    'Type': bi(GOV_ITEM_TYPE[g.type] ?? 'Other'), 'Owner': g.owner, 'Status': bi(GOV_ITEM_STATUS[g.status]?.label ?? 'Planned'),
+    'Due date': g.due ?? '', 'Last review': g.lastReview ?? '', 'Next review': g.nextReview ?? '', 'Evidence link': g.evidence, 'Notes': g.notes, 'Notes AR': g.notesAr,
   };
 }
 
@@ -217,8 +232,9 @@ export async function syncGovernance(rows: SyncRow[]): Promise<SyncResult> {
   const ids: Record<string, string> = {}, errors: SyncResult['errors'] = [], deleted: string[] = [];
   const current = new Map((await loadGovItems()).map(g => [g.code, govRow(g)]));
   const owner = await sheetOwner(['GOVERNANCE_ADMIN']) ?? await sheetOwner(['SUPER_ADMIN', 'ADMIN']);
-  const typeOf = (v: unknown): GovItemType => GOV_ITEM_TYPE_KEYS.find(k => norm(GOV_ITEM_TYPE[k]) === norm(str(v)) || norm(k) === norm(str(v))) ?? 'OTHER';
-  const statusOf = (v: unknown): GovItemStatus => GOV_ITEM_STATUS_KEYS.find(k => norm(GOV_ITEM_STATUS[k].label) === norm(str(v)) || norm(k) === norm(str(v))) ?? 'PLANNED';
+  // Type, Status and About may be typed in English, in Arabic, or picked from the bilingual list.
+  const typeOf = (v: unknown): GovItemType => GOV_ITEM_TYPE_KEYS.find(k => means(v, GOV_ITEM_TYPE[k], k)) ?? 'OTHER';
+  const statusOf = (v: unknown): GovItemStatus => GOV_ITEM_STATUS_KEYS.find(k => means(v, GOV_ITEM_STATUS[k].label, k)) ?? 'PLANNED';
 
   for (const { key, values: sheetV, fields } of rows.slice(0, 500)) {
     try {
@@ -229,14 +245,14 @@ export async function syncGovernance(rows: SyncRow[]): Promise<SyncResult> {
       }
       const cur = code ? current.get(code) : undefined;
       const v = cur ? merge(cur, sheetV, fields) : sheetV;
-      const title = str(v['Governance item']);
-      if (!title && !code) continue;
-      if (!title) { errors.push({ key, message: 'The Governance item column is empty' }); continue; }
-      const scope = norm(str(v['About'])).startsWith('proj') ? 'PROJECT' : 'UNIT';
+      const title = str(v['Governance item']), titleAr = str(v['Governance item AR']);
+      if (!title && !titleAr && !code) continue;
+      if (!title && !titleAr) { errors.push({ key, message: 'The Governance item column is empty' }); continue; }
+      const scope = means(v['About'], 'Project') || norm(str(v['About'])).startsWith('proj') ? 'PROJECT' : 'UNIT';
       const r = await saveGovItem({
-        scope, target: str(v['Project or unit']) || null, title, type: typeOf(v['Type']), status: statusOf(v['Status']),
+        scope, target: str(v['Project or unit']) || null, title, titleAr: titleAr || null, type: typeOf(v['Type']), status: statusOf(v['Status']),
         owner: str(v['Owner']) || null, due: day(v['Due date']) || null, lastReview: day(v['Last review']) || null,
-        nextReview: day(v['Next review']) || null, evidence: str(v['Evidence link']) || null, notes: str(v['Notes']) || null,
+        nextReview: day(v['Next review']) || null, evidence: str(v['Evidence link']) || null, notes: str(v['Notes']) || null, notesAr: str(v['Notes AR']) || null,
       }, code ? { code } : undefined);
       if (r.error || !r.item) { errors.push({ key, message: r.error ?? 'Could not save' }); continue; }
       ids[key] = r.item.code;

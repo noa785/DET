@@ -11,7 +11,8 @@ const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional();
 export const GovInput = z.object({
   scope:      z.enum(['PROJECT', 'UNIT']),
   target:     z.string().trim().max(200).optional().nullable(),     // project or unit: code or name
-  title:      z.string().trim().min(1, 'Please write the governance item').max(500),
+  title:      z.string().trim().max(500).optional().default(''),
+  titleAr:    z.string().trim().max(500).optional().nullable(),   // the item in Arabic
   type:       z.enum(GOV_ITEM_TYPE_KEYS as [string, ...string[]]).optional().default('OTHER'),
   status:     z.enum(GOV_ITEM_STATUS_KEYS as [string, ...string[]]).optional().default('PLANNED'),
   owner:      z.string().trim().max(200).optional().nullable(),
@@ -20,7 +21,8 @@ export const GovInput = z.object({
   nextReview: day,
   evidence:   z.string().trim().max(1000).optional().nullable(),
   notes:      z.string().trim().max(10000).optional().nullable(),
-});
+  notesAr:    z.string().trim().max(10000).optional().nullable(),
+}).refine(v => !!(v.title || v.titleAr), { message: 'Please write the governance item (in English or Arabic)', path: ['title'] });
 export type GovInputT = z.infer<typeof GovInput>;
 
 const toDate = (d: string | null | undefined) => (d ? new Date(`${d}T00:00:00Z`) : null);
@@ -42,10 +44,11 @@ export async function saveGovItem(input: GovInputT, ref?: { id?: string; code?: 
   const t = await resolveTarget(input.scope, input.target);
   if (t.error) return { error: t.error };
   const data = {
-    scope: input.scope, projectId: t.projectId, unitId: t.unitId, title: input.title,
+    // The item may be written in Arabic only: the English title then shows the Arabic until someone adds the English.
+    scope: input.scope, projectId: t.projectId, unitId: t.unitId, title: input.title || input.titleAr || '', titleAr: input.titleAr || null,
     type: input.type ?? 'OTHER', status: input.status ?? 'PLANNED', ownerName: input.owner || null,
     dueDate: toDate(input.due), lastReview: toDate(input.lastReview), nextReview: toDate(input.nextReview),
-    evidenceLink: input.evidence || null, notes: input.notes || null,
+    evidenceLink: input.evidence || null, notes: input.notes || null, notesAr: input.notesAr || null,
   };
   const existing = ref?.id || ref?.code
     ? await prisma.detGovItem.findFirst({ where: ref.id ? { id: ref.id } : { code: ref.code }, select: { id: true } })

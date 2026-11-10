@@ -327,6 +327,7 @@ model Order {
   ownerName        String?     // free-text responsible (e.g. "Nora + Rawan")
   govStatus        GovSimpleStatus @default(NOT_REQUIRED)
   govNote          String?     @db.Text
+  govNoteAr        String?     @db.Text   // the same governance note in Arabic
   sheetOrder       Int?        // row number in the tracker Excel, keeps lists in the sheet's order
 
   createdAt        DateTime    @default(now())
@@ -912,6 +913,7 @@ model DetGovItem {
   unitId       String?
   unit         Unit?     @relation(fields: [unitId], references: [id])
   title        String
+  titleAr      String?                      // the item in Arabic
   type         String    @default("OTHER")  // POLICY | PROCEDURE | STANDARD | REVIEW | COMPLIANCE | RISK | OTHER
   status       String    @default("PLANNED")// PLANNED | IN_REVIEW | APPROVED | NEEDS_UPDATE
   ownerName    String?
@@ -920,6 +922,7 @@ model DetGovItem {
   nextReview   DateTime?
   evidenceLink String?
   notes        String?   @db.Text
+  notesAr      String?   @db.Text            // the notes in Arabic
   isDeleted    Boolean   @default(false)
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt

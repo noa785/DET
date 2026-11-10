@@ -8,7 +8,7 @@ const iso = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : null);
 
 export const DET_ORDER_SELECT = {
   id: true, orderCode: true, section: true, name: true, ownerName: true, status: true,
-  percentComplete: true, startDate: true, dueDate: true, govStatus: true, govNote: true, updatedAt: true,
+  percentComplete: true, startDate: true, dueDate: true, govStatus: true, govNote: true, govNoteAr: true, updatedAt: true,
   owner: { select: { name: true } },
   unit: { select: { code: true, name: true } },
   project: { select: { code: true, name: true } },
@@ -17,7 +17,7 @@ export const DET_ORDER_SELECT = {
 
 type Row = {
   id: string; orderCode: string; section: string; name: string; ownerName: string | null; status: string;
-  percentComplete: number; startDate: Date | null; dueDate: Date | null; govStatus: string; govNote: string | null; updatedAt: Date;
+  percentComplete: number; startDate: Date | null; dueDate: Date | null; govStatus: string; govNote: string | null; govNoteAr: string | null; updatedAt: Date;
   owner: { name: string } | null; unit: { code: string; name: string } | null;
   project: { code: string; name: string } | null;
   description: { bulletSummary: string | null; narrativeSummary: string | null; risks: string | null; nextSteps: string | null } | null;
@@ -42,6 +42,7 @@ export function toDetOrder(r: Row): DetOrder {
     due: iso(r.dueDate),
     gov: r.govStatus as GovStatus,
     govNote: r.govNote ?? '',
+    govNoteAr: r.govNoteAr ?? '',
     points: (r.description?.bulletSummary ?? '').split('\n').map(s => s.trim()).filter(Boolean),
     narrative: r.description?.narrativeSummary ?? '',
     risks: r.description?.risks ?? '',
@@ -158,15 +159,15 @@ export async function resolveProject(value: string | null | undefined, section: 
 /* ── Governance register ──────────────────────────────────────────────────── */
 
 export const DET_GOV_SELECT = {
-  id: true, code: true, scope: true, title: true, type: true, status: true, ownerName: true,
-  dueDate: true, lastReview: true, nextReview: true, evidenceLink: true, notes: true, updatedAt: true,
+  id: true, code: true, scope: true, title: true, titleAr: true, type: true, status: true, ownerName: true,
+  dueDate: true, lastReview: true, nextReview: true, evidenceLink: true, notes: true, notesAr: true, updatedAt: true,
   project: { select: { code: true, name: true, section: true } },
   unit: { select: { code: true, name: true } },
 } as const;
 
 type GovRow = {
-  id: string; code: string; scope: string; title: string; type: string; status: string; ownerName: string | null;
-  dueDate: Date | null; lastReview: Date | null; nextReview: Date | null; evidenceLink: string | null; notes: string | null; updatedAt: Date;
+  id: string; code: string; scope: string; title: string; titleAr: string | null; type: string; status: string; ownerName: string | null;
+  dueDate: Date | null; lastReview: Date | null; nextReview: Date | null; evidenceLink: string | null; notes: string | null; notesAr: string | null; updatedAt: Date;
   project: { code: string; name: string; section: string | null } | null; unit: { code: string; name: string } | null;
 };
 
@@ -176,9 +177,9 @@ export function toDetGov(r: GovRow): DetGov {
     projectCode: r.project?.code ?? null, projectName: r.project?.name ?? null,
     projectSection: (r.project?.section as SectionKey | null) ?? null,
     unitCode: r.unit?.code ?? null, unitName: r.unit?.name ?? null,
-    title: r.title, type: r.type as GovItemType, status: r.status as GovItemStatus, owner: r.ownerName ?? '',
+    title: r.title, titleAr: r.titleAr ?? '', type: r.type as GovItemType, status: r.status as GovItemStatus, owner: r.ownerName ?? '',
     due: iso(r.dueDate), lastReview: iso(r.lastReview), nextReview: iso(r.nextReview),
-    evidence: r.evidenceLink ?? '', notes: r.notes ?? '', updatedAt: r.updatedAt.toISOString(),
+    evidence: r.evidenceLink ?? '', notes: r.notes ?? '', notesAr: r.notesAr ?? '', updatedAt: r.updatedAt.toISOString(),
   };
 }
 

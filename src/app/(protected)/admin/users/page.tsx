@@ -3,9 +3,12 @@ import { Metadata } from 'next';
 import { requireAuth, can } from '@/lib/auth/session';
 import { prisma } from '@/lib/prisma/client';
 import { redirect } from 'next/navigation';
+import { getT } from '@/lib/i18n/server';
 import UsersClient from './UsersClient';
 
-export const metadata: Metadata = { title: 'Users & Roles - DET' };
+export function generateMetadata(): Metadata {
+  return { title: `${getT()('Users & Roles')} - DET` };
+}
 
 export default async function UsersPage() {
   const user = await requireAuth();

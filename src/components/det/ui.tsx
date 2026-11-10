@@ -4,6 +4,17 @@
 
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import { BUCKETS, GOV, GOV_ITEM_STATUS, NO_PROJECT, SECTIONS, groupUnits, initials, personColor, type Bucket, type DetOrder, type DetProject, type DetUnit, type GovItemStatus, type GovStatus, type SectionKey } from '@/lib/det/shared';
+import { useLang } from '@/lib/i18n/client';
+import { locale, translate, type Lang } from '@/lib/i18n/core';
+
+/** A date (YYYY-MM-DD) in the reader's language, e.g. "5 Mar 2026". */
+export function fdateIn(lang: Lang, iso: string | null): string {
+  if (!iso) return '';
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString(locale(lang), { day: 'numeric', month: 'short', year: 'numeric' });
+}
+/** The page language outside React (read from <html lang>). */
+const docLang = (): Lang => (typeof document !== 'undefined' && document.documentElement.lang === 'ar' ? 'ar' : 'en');
 
 /* ── Icons ─────────────────────────────────────────────── */
 const paths: Record<string, ReactNode> = {
@@ -80,12 +91,14 @@ export function Ring({ value, size = 104, stroke = 10, color, track = '#EDF2F1',
 
 /* ── Pills, people, progress ───────────────────────────── */
 export function StatusPill({ bucket }: { bucket: Bucket }) {
+  const { t } = useLang();
   const b = BUCKETS[bucket];
-  return <span className="pill" style={{ color: b.color, background: `${b.color}17` }}>{b.label}</span>;
+  return <span className="pill" style={{ color: b.color, background: `${b.color}17` }}>{t(b.label)}</span>;
 }
 export function GovPill({ gov }: { gov: GovStatus }) {
+  const { t } = useLang();
   const g = GOV[gov];
-  return <span className="gov" style={{ color: g.color, background: `${g.color}14` }}><Icon name="shield" size={13} />{g.label}</span>;
+  return <span className="gov" style={{ color: g.color, background: `${g.color}14` }}><Icon name="shield" size={13} />{t(g.label)}</span>;
 }
 export function Person({ name, showName = true }: { name: string; showName?: boolean }) {
   return (
@@ -108,11 +121,12 @@ export function Progress({ value }: { value: number }) {
 
 /* ── Page header ───────────────────────────────────────── */
 export function PageHeader({ section, title, sub, actions }: { section?: SectionKey; title: string; sub?: string; actions?: ReactNode }) {
+  const { t } = useLang();
   const s = section ? SECTIONS[section] : null;
   return (
     <div className="ph">
       <div>
-        {s && <div className="eyebrow" style={{ color: s.color }}><Icon name={sectionIcon(s.key)} size={14} />{s.name}</div>}
+        {s && <div className="eyebrow" style={{ color: s.color }}><Icon name={sectionIcon(s.key)} size={14} />{t(s.name)}</div>}
         <h1>{title}</h1>
         {sub && <p>{sub}</p>}
       </div>
@@ -138,6 +152,7 @@ export function Segmented<T extends string>({ value, options, onChange, three }:
 
 /* ── Bullet editor: Enter adds a point, Backspace on an empty point removes it ── */
 export function BulletEditor({ value, onChange }: { value: string[]; onChange: (v: string[]) => void }) {
+  const { t } = useLang();
   const items = value.length ? value : [''];
   const refs = useRef<(HTMLInputElement | null)[]>([]);
   const focusAt = useRef<number | null>(null);
@@ -153,7 +168,7 @@ export function BulletEditor({ value, onChange }: { value: string[]; onChange: (
             <span className="dot" />
             <input
               ref={el => { refs.current[i] = el; }}
-              type="text" value={v} placeholder="Write a point"
+              type="text" value={v} placeholder={t('Write a point')}
               onChange={e => { const n = [...items]; n[i] = e.target.value; set(n); }}
               onKeyDown={e => {
                 if (e.key === 'Enter') { e.preventDefault(); const n = [...items]; n.splice(i + 1, 0, ''); set(n, i + 1); }
@@ -167,21 +182,27 @@ export function BulletEditor({ value, onChange }: { value: string[]; onChange: (
           </div>
         ))}
       </div>
-      <button type="button" className="link-btn" onClick={() => set([...items, ''], items.length)}><Icon name="plus" size={15} />Add point</button>
+      <button type="button" className="link-btn" onClick={() => set([...items, ''], items.length)}><Icon name="plus" size={15} />{t('Add point')}</button>
     </>
   );
 }
 
 /* ── Governance box ────────────────────────────────────── */
-export function GovBox({ section, value, note, onChange, onNote }: {
-  section: SectionKey; value: GovStatus; note: string; onChange: (v: GovStatus) => void; onNote: (v: string) => void;
+export function GovBox({ section, value, note, noteAr, onChange, onNote, onNoteAr }: {
+  section: SectionKey; value: GovStatus; note: string; noteAr?: string;
+  onChange: (v: GovStatus) => void; onNote: (v: string) => void; onNoteAr?: (v: string) => void;
 }) {
+  const { t } = useLang();
   return (
     <div className="govbox">
-      <div className="govbox-h"><Icon name="shield" size={18} /><div><b>Governance</b><span>Owned by {SECTIONS[section].name}</span></div></div>
+      <div className="govbox-h"><Icon name="shield" size={18} /><div><b>{t('Governance')}</b><span>{t('Owned by {section}', { section: t(SECTIONS[section].name) })}</span></div></div>
       <Segmented three value={value} onChange={onChange}
-        options={(Object.keys(GOV) as GovStatus[]).map(k => ({ key: k, label: GOV[k].label, color: GOV[k].color }))} />
-      <textarea value={note} onChange={e => onNote(e.target.value)} placeholder="Governance note (optional): policy, approval or decision" />
+        options={(Object.keys(GOV) as GovStatus[]).map(k => ({ key: k, label: t(GOV[k].label), color: GOV[k].color }))} />
+      <textarea dir="auto" value={note} onChange={e => onNote(e.target.value)} placeholder={t('Governance note (optional): policy, approval or decision')} />
+      {onNoteAr && (
+        <textarea dir="rtl" lang="ar" value={noteAr ?? ''} onChange={e => onNoteAr(e.target.value)}
+          placeholder="ملاحظة الحوكمة بالعربي (اختياري)" style={{ marginTop: 8 }} />
+      )}
     </div>
   );
 }
@@ -204,7 +225,7 @@ export function ToastHost() {
 export async function api<T = unknown>(url: string, method: string, body?: unknown): Promise<T> {
   const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
   const json = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(json.error || 'Something went wrong. Please try again.');
+  if (!res.ok) throw new Error(json.error || translate(docLang(), 'Something went wrong. Please try again.'));
   return json.data as T;
 }
 
@@ -212,12 +233,13 @@ export async function api<T = unknown>(url: string, method: string, body?: unkno
 export function UnitSelect({ id, units, value, onChange, emptyLabel = 'None', className }: {
   id?: string; units: DetUnit[]; value: string; onChange: (code: string) => void; emptyLabel?: string; className?: string;
 }) {
+  const { t } = useLang();
   const groups = useMemo(() => groupUnits(units), [units]);
   return (
     <select id={id} className={className} value={value} onChange={e => onChange(e.target.value)}>
-      <option value="">{emptyLabel}</option>
+      <option value="">{t(emptyLabel)}</option>
       {groups.map(g => (
-        <optgroup key={g.group} label={g.group}>
+        <optgroup key={g.group} label={t(g.group)}>
           {g.units.map(u => <option key={u.code} value={u.code}>{u.name} ({u.code})</option>)}
         </optgroup>
       ))}
@@ -260,6 +282,7 @@ export function applyOrderFilters(orders: DetOrder[], f: OrderFilterState): DetO
 export function OrderFilters({ orders, units, value, onChange, shown }: {
   orders: DetOrder[]; units: DetUnit[]; value: OrderFilterState; onChange: (f: OrderFilterState) => void; shown: number;
 }) {
+  const { t } = useLang();
   // Only list the units that have orders here, so every choice gives results.
   const used = useMemo(() => {
     const codes = new Set(orders.map(o => o.unitCode).filter(Boolean));
@@ -272,41 +295,42 @@ export function OrderFilters({ orders, units, value, onChange, shown }: {
   const active = !!(value.unit || value.project || value.from || value.to || value.sort !== 'project');
   return (
     <div className="filter-row">
-      <span className="fr-label"><Icon name="filter" size={14} />Filter</span>
-      <select className="fr-unit" value={value.project} onChange={e => onChange({ ...value, project: e.target.value })} aria-label="Project">
-        <option value="">All projects</option>
-        {projects.map(p => <option key={p} value={p}>{p}</option>)}
+      <span className="fr-label"><Icon name="filter" size={14} />{t('Filter')}</span>
+      <select className="fr-unit" value={value.project} onChange={e => onChange({ ...value, project: e.target.value })} aria-label={t('Project')}>
+        <option value="">{t('All projects')}</option>
+        {projects.map(p => <option key={p} value={p}>{p === NO_PROJECT ? t(NO_PROJECT) : p}</option>)}
       </select>
       <UnitSelect className="fr-unit" units={used} value={value.unit} emptyLabel="All units" onChange={unit => onChange({ ...value, unit })} />
-      <label className="fr-date">Due from<input type="date" value={value.from} max={value.to || undefined} onChange={e => onChange({ ...value, from: e.target.value })} /></label>
-      <label className="fr-date">to<input type="date" value={value.to} min={value.from || undefined} onChange={e => onChange({ ...value, to: e.target.value })} /></label>
-      <label className="fr-date">Sort
+      <label className="fr-date">{t('Due from')}<input type="date" value={value.from} max={value.to || undefined} onChange={e => onChange({ ...value, from: e.target.value })} /></label>
+      <label className="fr-date">{t('to')}<input type="date" value={value.to} min={value.from || undefined} onChange={e => onChange({ ...value, to: e.target.value })} /></label>
+      <label className="fr-date">{t('Sort')}
         <select value={value.sort} onChange={e => onChange({ ...value, sort: e.target.value as OrderSort })}>
-          <option value="project">By project</option>
-          <option value="sheet">Excel order</option>
-          <option value="newest">Newest due date first</option>
-          <option value="oldest">Oldest due date first</option>
-          <option value="start-newest">Newest start date first</option>
-          <option value="start-oldest">Oldest start date first</option>
+          <option value="project">{t('By project')}</option>
+          <option value="sheet">{t('Excel order')}</option>
+          <option value="newest">{t('Newest due date first')}</option>
+          <option value="oldest">{t('Oldest due date first')}</option>
+          <option value="start-newest">{t('Newest start date first')}</option>
+          <option value="start-oldest">{t('Oldest start date first')}</option>
         </select>
       </label>
-      {active && <button type="button" className="fr-clear" onClick={() => onChange(NO_FILTERS)}><Icon name="x" size={13} />Clear</button>}
-      <span className="fr-count">{shown} order{shown === 1 ? '' : 's'}</span>
+      {active && <button type="button" className="fr-clear" onClick={() => onChange(NO_FILTERS)}><Icon name="x" size={13} />{t('Clear')}</button>}
+      <span className="fr-count">{t(shown === 1 ? '{n} order' : '{n} orders', { n: shown })}</span>
     </div>
   );
 }
 
 /* ── Clickable date headers: oldest first, then newest first, then back to Excel order ── */
 export function DateHeader({ field, value, onChange }: { field: 'due' | 'start'; value: OrderFilterState; onChange: (f: OrderFilterState) => void }) {
+  const { t } = useLang();
   const oldest: OrderSort = field === 'start' ? 'start-oldest' : 'oldest';
   const newest: OrderSort = field === 'start' ? 'start-newest' : 'newest';
   const state = value.sort === oldest ? 'oldest' : value.sort === newest ? 'newest' : 'none';
   const nextSort: OrderSort = state === 'none' ? oldest : state === 'oldest' ? newest : 'project';
   return (
     <button type="button" className={`th-sort${state !== 'none' ? ' on' : ''}`}
-      title={state === 'oldest' ? 'Oldest first' : state === 'newest' ? 'Newest first' : 'Click to sort'}
+      title={t(state === 'oldest' ? 'Oldest first' : state === 'newest' ? 'Newest first' : 'Click to sort')}
       onClick={() => onChange({ ...value, sort: nextSort })}>
-      {field === 'start' ? 'Start date' : 'Due date'}
+      {t(field === 'start' ? 'Start date' : 'Due date')}
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
         {state === 'newest' ? <path d="M12 5v14M6 13l6 6 6-6" /> : state === 'oldest' ? <path d="M12 19V5M6 11l6-6 6 6" /> : <path d="M8 9l4-4 4 4M8 15l4 4 4-4" />}
       </svg>
@@ -319,13 +343,14 @@ export const DueDateHeader = (p: { value: OrderFilterState; onChange: (f: OrderF
 export function ProjectSelect({ id, projects, value, onChange, className }: {
   id?: string; projects: DetProject[]; value: string; onChange: (name: string) => void; className?: string;
 }) {
+  const { t } = useLang();
   const known = projects.some(p => p.name === value);
   const [typing, setTyping] = useState(!!value && !known);
   if (typing) {
     return (
       <div className="proj-new">
-        <input id={id} className={className} autoFocus value={value} placeholder="New project name" onChange={e => onChange(e.target.value)} />
-        <button type="button" className="link-btn" onClick={() => { setTyping(false); onChange(''); }}>Choose from list</button>
+        <input id={id} className={className} autoFocus value={value} placeholder={t('New project name')} onChange={e => onChange(e.target.value)} />
+        <button type="button" className="link-btn" onClick={() => { setTyping(false); onChange(''); }}>{t('Choose from list')}</button>
       </div>
     );
   }
@@ -333,15 +358,16 @@ export function ProjectSelect({ id, projects, value, onChange, className }: {
     <select id={id} className={className} value={known ? value : ''} onChange={e => {
       if (e.target.value === '__new') { setTyping(true); onChange(''); } else onChange(e.target.value);
     }}>
-      <option value="">No project</option>
+      <option value="">{t(NO_PROJECT)}</option>
       {projects.map(p => <option key={p.code} value={p.name}>{p.name} ({p.code})</option>)}
-      <option value="__new">+ New project…</option>
+      <option value="__new">{t('+ New project…')}</option>
     </select>
   );
 }
 
 /* ── Governance status pill ────────────────────────────── */
 export function GovItemPill({ status }: { status: GovItemStatus }) {
+  const { t } = useLang();
   const s = GOV_ITEM_STATUS[status] ?? GOV_ITEM_STATUS.PLANNED;
-  return <span className="pill" style={{ color: s.color, background: `${s.color}17` }}>{s.label}</span>;
+  return <span className="pill" style={{ color: s.color, background: `${s.color}17` }}>{t(s.label)}</span>;
 }

@@ -3,9 +3,13 @@
   font-family: 'IBM Plex Sans Arabic', 'IBM Plex Sans', 'Segoe UI', Tahoma, sans-serif;
 }
 /* Language switch */
-.lang-switch {border: 1px solid var(--border, #DCE8E6); background: #fff; color: var(--teal-800, #0A4542); font: inherit; font-size: 13px; font-weight: 600;
-  height: 32px; padding: 0 14px; border-radius: 999px; cursor: pointer; white-space: nowrap;}
-.lang-switch:hover {border-color: var(--teal, #158B87); background: var(--teal-50, #E6F2F1);}
+.lang-switch {display: inline-flex; align-items: center; gap: 7px; border: 1.5px solid var(--teal, #158B87); background: #E6F2F1; color: #0A4542;
+  font: inherit; font-size: 13.5px; font-weight: 700; height: 34px; padding: 0 14px; border-radius: 999px; cursor: pointer; white-space: nowrap;
+  font-family: 'IBM Plex Sans Arabic', 'IBM Plex Sans', sans-serif;}
+.lang-switch svg {color: #158B87; flex: none;}
+.lang-switch:hover {background: #158B87; color: #fff;}
+.lang-switch:hover svg {color: #fff;}
+.lang-switch:disabled {opacity: .7; cursor: progress;}
 .det-app .top .top-lang {margin-inline-start: auto;}
 .det-app .top .top-lang ~ .btn {margin-left: 12px;}
 [dir="rtl"] .det-app .top .top-lang ~ .btn {margin-left: 0; margin-right: 12px;}

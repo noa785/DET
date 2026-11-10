@@ -14,7 +14,8 @@
 .lang-switch.is-busy .ls-opt {cursor: progress;}
 .lang-switch .ls-spin {width: 12px; height: 12px; border-radius: 50%; border: 2px solid currentColor; border-top-color: transparent; animation: ls-spin .7s linear infinite;}
 @keyframes ls-spin {to {transform: rotate(360deg);}}
-.det-app .top .top-lang {margin-inline-start: auto;}
+.det-app .top .top-spacer {flex: 1 1 auto; min-width: 12px;}
+.det-app .top .top-lang {flex: none;}
 .det-app .top .top-lang ~ .btn {margin-left: 12px;}
 [dir="rtl"] .det-app .top .top-lang ~ .btn {margin-left: 0; margin-right: 12px;}
 [dir="rtl"] .det-login .login-lang-wrap {right: auto; left: 24px;}

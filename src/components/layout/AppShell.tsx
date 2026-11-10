@@ -159,6 +159,7 @@ export default function AppShell({ user, counts = {}, children }: {
         <header className="top">
           <button className="burger" onClick={() => setOpen(o => !o)} aria-label={t('Menu')}><Icon name="menu" size={18} /></button>
           <div className="crumbs">{crumbs}</div>
+          <div className="top-spacer" aria-hidden="true" />
           <LangSwitch className="top-lang" />
         </header>
         <main className="page" key={path}>{children}</main>

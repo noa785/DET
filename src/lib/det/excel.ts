@@ -201,8 +201,8 @@ export async function buildSectionWorkbook(section: SectionKey, generatedBy: str
   sys.columns = SYS_COLS.map(([h, w]) => ({ header: t(h), width: w }));
   header(sys, 1, SYS_COLS.length);
   systems.forEach(s => {
-    const row = sys.addRow([s.code, s.name, t(s.type === 'ACADEMIC' ? 'Academic' : 'Administrative'), s.unitCode, t(SYSTEM_STATUS[s.status].label),
-      s.summary, s.link, null, s.includeInKpi ? t('Yes') : t('No'), s.orders, s.done]);
+    const row = sys.addRow([s.code, t(s.name), t(s.type === 'ACADEMIC' ? 'Academic' : 'Administrative'), s.unitCode, t(SYSTEM_STATUS[s.status].label),
+      s.summary ? t(s.summary) : s.summary, s.link, null, s.includeInKpi ? t('Yes') : t('No'), s.orders, s.done]);
     row.getCell(5).font = { bold: true, color: { argb: 'FF' + SYSTEM_STATUS[s.status as SystemStatus].color.slice(1) } };
   });
   grid(sys, 2, systems.length + 1, SYS_COLS.length);
@@ -392,8 +392,8 @@ export async function buildGovernanceWorkbook(generatedBy: string, lang: Lang = 
   const d = (v: string | null) => (v ? new Date(`${v}T00:00:00Z`) : null);
   for (const g of items) {
     const where = g.scope === 'PROJECT'
-      ? [g.projectCode, g.projectName].filter(Boolean).join(' ')
-      : [g.unitCode, g.unitName].filter(Boolean).join(' ');
+      ? [g.projectCode, g.projectName && t(g.projectName)].filter(Boolean).join(' ')
+      : [g.unitCode, g.unitName && t(g.unitName)].filter(Boolean).join(' ');
     const r = ws.addRow([
       g.code, t(GOV_SCOPE[g.scope]), where, g.title === g.titleAr ? '' : g.title, g.titleAr, t(GOV_ITEM_TYPE[g.type]), g.owner,
       t(GOV_ITEM_STATUS[g.status].label), d(g.due), d(g.lastReview), d(g.nextReview), g.evidence, g.notes, g.notesAr,

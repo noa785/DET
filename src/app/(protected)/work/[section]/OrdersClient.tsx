@@ -78,14 +78,14 @@ export default function OrdersClient({ section, initial, owners, units, projects
                 <Fragment key={o.id}>
                 {head && (
                   <tr className="proj-row"><td colSpan={9}>
-                    <Icon name="folder" size={15} /><b>{k === NO_PROJECT ? t(NO_PROJECT) : k}</b>{o.projectCode && <span className="t-code">{o.projectCode}</span>}
+                    <Icon name="folder" size={15} /><b>{t(k)}</b>{o.projectCode && <span className="t-code">{o.projectCode}</span>}
                     {g && <span className="muted">{t(g.n === 1 ? '{n} order · {p}% done' : '{n} orders · {p}% done', { n: g.n, p: pct(g.done, g.n) })}</span>}
                   </td></tr>
                 )}
                 <tr className={`click${flash === o.id ? ' new' : ''}`} onClick={() => setOpenOrder(o)}>
                   <td><div className="t-name">{o.name}</div><div className="t-code">{o.code}</div></td>
-                  <td>{o.projectName ? <span className="t-unit proj" title={o.projectName}>{o.projectName}</span> : <span className="muted">-</span>}</td>
-                  <td>{o.unitCode ? <><span className="unit-tag" style={{ marginLeft: 0 }}>{o.unitCode}</span><span className="t-unit" title={o.unitName ?? undefined}>{o.unitName}</span></> : <span className="muted">-</span>}</td>
+                  <td>{o.projectName ? <span className="t-unit proj" title={t(o.projectName)}>{t(o.projectName)}</span> : <span className="muted">-</span>}</td>
+                  <td>{o.unitCode ? <><span className="unit-tag" style={{ marginLeft: 0 }}>{o.unitCode}</span><span className="t-unit" title={o.unitName ? t(o.unitName) : undefined}>{o.unitName ? t(o.unitName) : null}</span></> : <span className="muted">-</span>}</td>
                   <td><Person name={o.owner} /></td>
                   <td><StatusPill bucket={o.bucket} /></td>
                   <td><Progress value={o.progress} /></td>

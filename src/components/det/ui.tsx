@@ -240,7 +240,7 @@ export function UnitSelect({ id, units, value, onChange, emptyLabel = 'None', cl
       <option value="">{t(emptyLabel)}</option>
       {groups.map(g => (
         <optgroup key={g.group} label={t(g.group)}>
-          {g.units.map(u => <option key={u.code} value={u.code}>{u.name} ({u.code})</option>)}
+          {g.units.map(u => <option key={u.code} value={u.code}>{t(u.name)} ({u.code})</option>)}
         </optgroup>
       ))}
     </select>
@@ -298,7 +298,7 @@ export function OrderFilters({ orders, units, value, onChange, shown }: {
       <span className="fr-label"><Icon name="filter" size={14} />{t('Filter')}</span>
       <select className="fr-unit" value={value.project} onChange={e => onChange({ ...value, project: e.target.value })} aria-label={t('Project')}>
         <option value="">{t('All projects')}</option>
-        {projects.map(p => <option key={p} value={p}>{p === NO_PROJECT ? t(NO_PROJECT) : p}</option>)}
+        {projects.map(p => <option key={p} value={p}>{t(p)}</option>)}
       </select>
       <UnitSelect className="fr-unit" units={used} value={value.unit} emptyLabel="All units" onChange={unit => onChange({ ...value, unit })} />
       <label className="fr-date">{t('Due from')}<input type="date" value={value.from} max={value.to || undefined} onChange={e => onChange({ ...value, from: e.target.value })} /></label>
@@ -359,7 +359,7 @@ export function ProjectSelect({ id, projects, value, onChange, className }: {
       if (e.target.value === '__new') { setTyping(true); onChange(''); } else onChange(e.target.value);
     }}>
       <option value="">{t(NO_PROJECT)}</option>
-      {projects.map(p => <option key={p.code} value={p.name}>{p.name} ({p.code})</option>)}
+      {projects.map(p => <option key={p.code} value={p.name}>{t(p.name)} ({p.code})</option>)}
       <option value="__new">{t('+ New project…')}</option>
     </select>
   );

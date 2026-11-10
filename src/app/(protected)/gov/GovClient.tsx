@@ -38,7 +38,7 @@ export default function GovClient({ initial, projects, units, owners, canEdit }:
   // The governance officer may write in Arabic only: show the language of the page first, the other one as fallback.
   const titleOf = (g: Pick<DetGov, 'title' | 'titleAr'>) => (lang === 'ar' ? g.titleAr || g.title : g.title || g.titleAr);
   const target = (g: Pick<DetGov, 'scope' | 'projectName' | 'unitName'>) => (g.scope === 'PROJECT' ? g.projectName : g.unitName) || 'Not linked';
-  const shownTarget = (g: Pick<DetGov, 'scope' | 'projectName' | 'unitName'>) => { const x = target(g); return x === 'Not linked' ? t('Not linked') : x; };
+  const shownTarget = (g: Pick<DetGov, 'scope' | 'projectName' | 'unitName'>) => { const x = target(g); return t(x); };
   const list = useMemo(() => {
     const s = q.trim().toLowerCase();
     return items
@@ -117,7 +117,7 @@ export default function GovClient({ initial, projects, units, owners, canEdit }:
       {!!notCovered.length && (
         <details className="card mt card-b">
           <summary style={{ cursor: 'pointer', fontWeight: 600 }}>{t('ELI units without governance items yet ({n})', { n: notCovered.length })}</summary>
-          <p className="muted" style={{ marginTop: 10, lineHeight: 1.8 }}>{notCovered.map(u => u.name).join(' · ')}</p>
+          <p className="muted" style={{ marginTop: 10, lineHeight: 1.8 }}>{notCovered.map(u => t(u.name)).join(' · ')}</p>
         </details>
       )}
       <GovDrawer draft={open} projects={projects} units={units} owners={owners} canEdit={canEdit} onClose={() => setOpen(null)}
@@ -194,7 +194,7 @@ function GovDrawer({ draft, projects, units, owners, canEdit, onClose, onSaved, 
                     {f.scope === 'PROJECT' ? (
                       <select id="g-target" value={f.projectCode ?? ''} onChange={e => set({ projectCode: e.target.value || null, projectName: projects.find(p => p.code === e.target.value)?.name ?? null })}>
                         <option value="">{t('Choose a project')}</option>
-                        {projects.map(p => <option key={p.code} value={p.code}>{p.name} ({p.section ? SECTIONS[p.section].short : '-'})</option>)}
+                        {projects.map(p => <option key={p.code} value={p.code}>{t(p.name)} ({p.section ? SECTIONS[p.section].short : '-'})</option>)}
                       </select>
                     ) : (
                       <UnitSelect id="g-target" units={units} value={f.unitCode ?? ''} emptyLabel={t('Choose a unit')}

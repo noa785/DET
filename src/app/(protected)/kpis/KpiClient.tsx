@@ -159,11 +159,11 @@ function SystemsBand({ systems }: { systems: DetSystem[] }) {
           <tbody>
             {systems.map(s => (
               <tr key={s.code}>
-                <td><div className="t-name" style={{ minWidth: 180 }}>{s.name}</div><div className="t-code">{s.code}{s.unitCode && <span className="unit-tag">{s.unitCode}</span>}</div></td>
+                <td><div className="t-name" style={{ minWidth: 180 }}>{t(s.name)}</div><div className="t-code">{s.code}{s.unitCode && <span className="unit-tag">{s.unitCode}</span>}</div></td>
                 <td className="muted" style={{ fontSize: 13 }}>{s.type === 'ACADEMIC' ? t('Academic') : t('Administrative')}</td>
                 <td><span className="pill" style={{ color: SYSTEM_STATUS[s.status].color, background: `${SYSTEM_STATUS[s.status].color}17` }}>{t(SYSTEM_STATUS[s.status].label)}</span></td>
                 <td className="muted" style={{ fontSize: 13, whiteSpace: 'nowrap' }}>{t('{done} of {total} orders', { done: s.done, total: s.orders })}</td>
-                <td style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.5 }}>{s.summary}</td>
+                <td style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.5 }}>{s.summary ? t(s.summary) : s.summary}</td>
               </tr>
             ))}
           </tbody>

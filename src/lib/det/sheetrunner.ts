@@ -286,8 +286,38 @@ async function descArabicColumn(book: Book, eh: string[], ew: number): Promise<n
   return ew;
 }
 
+/**
+ * The Data tab gets a "Data Governance (Arabic)" column right after "Governance", so the Arabic note is written
+ * next to each task. Created once, filled from the Arabic notes already in the Description tab.
+ */
+async function dataArabicColumn(book: Book): Promise<void> {
+  const dAll = await book.read('Data');
+  const dh = (dAll[0] ?? []).map(x => String(x ?? '').trim());
+  if (headerIndex(dh)[DG_AR] !== undefined) return;
+  const t = (await book.tab('Data'))!;
+  const D = headerIndex(dh);
+  const at = D['Governance'] !== undefined ? D['Governance'] + 1 : Math.max(0, (D['Sync'] ?? dh.length));
+  await book.batch([
+    { insertDimension: { range: { sheetId: t.sheetId, dimension: 'COLUMNS', startIndex: at, endIndex: at + 1 }, inheritFromBefore: false } },
+    { repeatCell: { range: { sheetId: t.sheetId, startRowIndex: 1, startColumnIndex: at, endColumnIndex: at + 1 },
+      cell: { userEnteredFormat: { horizontalAlignment: 'RIGHT', textDirection: 'RIGHT_TO_LEFT', wrapStrategy: 'WRAP', verticalAlignment: 'TOP' } },
+      fields: 'userEnteredFormat.horizontalAlignment,userEnteredFormat.textDirection,userEnteredFormat.wrapStrategy,userEnteredFormat.verticalAlignment' } },
+    { repeatCell: { range: grid(t.sheetId, 1, at + 1, 1, 1), cell: { userEnteredFormat: { backgroundColor: TEAL, textFormat: { bold: true, foregroundColor: { red: 1, green: 1, blue: 1 } }, wrapStrategy: 'WRAP' } }, fields: 'userEnteredFormat.backgroundColor,userEnteredFormat.textFormat,userEnteredFormat.wrapStrategy' } },
+    { updateDimensionProperties: { range: { sheetId: t.sheetId, dimension: 'COLUMNS', startIndex: at, endIndex: at + 1 }, properties: { pixelSize: 300 }, fields: 'pixelSize' } },
+  ]);
+  // Fill it from the Description tab (matched by Order ID), so nothing already written is lost.
+  const eAll = await book.read('Description');
+  const E = headerIndex((eAll[0] ?? []).map(x => String(x ?? '').trim()));
+  const byId = new Map<string, string>();
+  if (E[DG_AR] !== undefined && E['Order ID'] !== undefined)
+    for (const r of eAll.slice(1)) { const id = text(r[E['Order ID']]), v = text(r[E[DG_AR]]); if (id && v) byId.set(id, v); }
+  const col: Cell[][] = [[biHead(DG_AR, 'حوكمة البيانات (عربي)')], ...dAll.slice(1).map(r => [byId.get(text(r[D['Order ID']])) ?? ''])];
+  await book.write([{ range: a1('Data', 1, at + 1, col.length, 1), values: col }]);
+}
+
 async function syncTrackerFile(book: Book, section: 'SYSTEMS_ENGINEERING' | 'AUTOMATION', sectionName: string) {
   if (!(await book.tab('Data')) || !(await book.tab('Description'))) throw new Error('Tabs "Data" and "Description" are needed');
+  await dataArabicColumn(book);
   const dAll = await book.read('Data');
   const dh = (dAll[0] ?? []).map(x => String(x ?? '').trim());
   let dw = Math.max(dh.length, ...dAll.map(r => r.length));
@@ -331,6 +361,8 @@ async function syncTrackerFile(book: Book, section: 'SYSTEMS_ENGINEERING' | 'AUT
       const x = d && E[h] !== undefined ? text(d[E[h]]) : '';
       v[T_DESC[h]] = h === 'Weekly Bullet' ? x.split('\n').map(s => s.replace(/^[•\-*]\s*/, '').trim()).filter(Boolean).join('\n') : x;
     }
+    // The Arabic data governance note is written in the Data tab, next to the task (the Description copy follows it).
+    if (D[DG_AR] !== undefined) v['Gov note AR'] = text(r[D[DG_AR]]);
     return v;
   };
 
@@ -369,7 +401,7 @@ async function syncTrackerFile(book: Book, section: 'SYSTEMS_ENGINEERING' | 'AUT
     set(r, D, 'Start Date', v['Start date'] || ''); set(r, D, 'Due Date', v['Due date'] || '');
     set(r, D, '% Complete', (Number(v['Progress %']) || 0) / 100);
     set(r, D, 'Status', v['Status detail'] || v['Status']); set(r, D, 'Simple Status', v['Status']);
-    set(r, D, 'Governance', v['Governance']); set(r, D, 'Late', v['Late']);
+    set(r, D, 'Governance', v['Governance']); set(r, D, 'Late', v['Late']); set(r, D, DG_AR, v['Gov note AR']);
     const bullets = String(v['Description'] ?? '').split('\n').filter(Boolean).map(x => `• ${x}`).join('\n');
     let d = descOf.get(String(v['Order ID']));
     if (!d && (bullets || v['Narrative'] || v['Gov note'] || v['Gov note AR'])) { d = eh.map(() => '' as Cell); while (d.length < ew) d.push(''); newDesc.push(d); descOf.set(String(v['Order ID']), d); }

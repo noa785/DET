@@ -21,19 +21,19 @@ export function LangProvider({ lang, children }: { lang: Lang; children: React.R
 export const useLang = () => useContext(LangContext);
 export const useT = () => useContext(LangContext).t;
 
-/** The العربية / English switch: a clear pill with a globe, and a busy state while the page reloads. */
+/** The language switch: two options side by side, the current one highlighted; a busy state while the page reloads. */
 export function LangSwitch({ className = '' }: { className?: string }) {
   const { lang, setLang } = useLang();
-  const [busy, setBusy] = useState(false);
-  const to: Lang = lang === 'ar' ? 'en' : 'ar';
+  const [busy, setBusy] = useState<Lang | null>(null);
+  const pick = (l: Lang) => { if (l === lang || busy) return; setBusy(l); setLang(l); };
   return (
-    <button type="button" className={`lang-switch ${className}`} disabled={busy} aria-busy={busy}
-      onClick={() => { setBusy(true); setLang(to); }}
-      title={to === 'en' ? 'Switch to English' : 'التحويل إلى العربية'} lang={to}>
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <circle cx="12" cy="12" r="10" /><path d="M2 12h20" /><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-      </svg>
-      <span>{busy ? (to === 'en' ? 'Loading…' : 'جارٍ التحويل…') : to === 'en' ? 'English' : 'العربية'}</span>
-    </button>
+    <div className={`lang-switch ${busy ? 'is-busy' : ''} ${className}`} role="group" aria-label="Language / اللغة" dir="ltr">
+      <button type="button" lang="ar" className={`ls-opt ls-ar ${lang === 'ar' ? 'on' : ''}`} aria-pressed={lang === 'ar'} onClick={() => pick('ar')}>
+        {busy === 'ar' ? <span className="ls-spin" aria-hidden="true" /> : null}العربية
+      </button>
+      <button type="button" lang="en" className={`ls-opt ls-en ${lang === 'en' ? 'on' : ''}`} aria-pressed={lang === 'en'} onClick={() => pick('en')}>
+        {busy === 'en' ? <span className="ls-spin" aria-hidden="true" /> : null}English
+      </button>
+    </div>
   );
 }

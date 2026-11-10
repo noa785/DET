@@ -3,13 +3,17 @@
   font-family: 'IBM Plex Sans Arabic', 'IBM Plex Sans', 'Segoe UI', Tahoma, sans-serif;
 }
 /* Language switch */
-.lang-switch {display: inline-flex; align-items: center; gap: 7px; border: 1.5px solid var(--teal, #158B87); background: #E6F2F1; color: #0A4542;
-  font: inherit; font-size: 13.5px; font-weight: 700; height: 34px; padding: 0 14px; border-radius: 999px; cursor: pointer; white-space: nowrap;
-  font-family: 'IBM Plex Sans Arabic', 'IBM Plex Sans', sans-serif;}
-.lang-switch svg {color: #158B87; flex: none;}
-.lang-switch:hover {background: #158B87; color: #fff;}
-.lang-switch:hover svg {color: #fff;}
-.lang-switch:disabled {opacity: .7; cursor: progress;}
+.lang-switch {display: inline-flex; align-items: center; gap: 2px; padding: 3px; border-radius: 999px;
+  background: #EEF4F3; border: 1px solid #D5E4E2; box-shadow: inset 0 1px 2px rgba(10,69,66,.06);}
+.lang-switch .ls-opt {display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 14px; border: 0; border-radius: 999px;
+  background: transparent; color: #5E7B78; cursor: pointer; white-space: nowrap; transition: background .18s, color .18s, box-shadow .18s;}
+.lang-switch .ls-ar {font-family: 'IBM Plex Sans Arabic', sans-serif; font-size: 14px; font-weight: 600;}
+.lang-switch .ls-en {font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; font-weight: 600; letter-spacing: .2px;}
+.lang-switch .ls-opt:hover:not(.on) {color: #0A4542; background: rgba(21,139,135,.08);}
+.lang-switch .ls-opt.on {background: linear-gradient(135deg, #158B87, #0F6E6B); color: #fff; box-shadow: 0 2px 6px rgba(15,110,107,.28); cursor: default;}
+.lang-switch.is-busy .ls-opt {cursor: progress;}
+.lang-switch .ls-spin {width: 12px; height: 12px; border-radius: 50%; border: 2px solid currentColor; border-top-color: transparent; animation: ls-spin .7s linear infinite;}
+@keyframes ls-spin {to {transform: rotate(360deg);}}
 .det-app .top .top-lang {margin-inline-start: auto;}
 .det-app .top .top-lang ~ .btn {margin-left: 12px;}
 [dir="rtl"] .det-app .top .top-lang ~ .btn {margin-left: 0; margin-right: 12px;}

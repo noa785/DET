@@ -123,11 +123,10 @@ export default function LoginForm() {
   return (
     <div className="det-login">
       <style dangerouslySetInnerHTML={{ __html: `.det-login .login-lang-wrap{position:fixed;top:22px;right:24px;z-index:20}
-.det-login .login-lang{font:600 13px/1 'IBM Plex Sans Arabic','IBM Plex Sans',sans-serif;padding:8px 14px;border-radius:999px;cursor:pointer;transition:background .2s,color .2s,border-color .2s}
-.det-login .login-lang-wrap.on-welcome .login-lang{color:#fff;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.3)}
-.det-login .login-lang-wrap.on-welcome .login-lang:hover{background:rgba(255,255,255,.18)}
-.det-login .login-lang-wrap.on-login .login-lang{color:var(--teal);background:#fff;border:1px solid var(--border, rgba(0,0,0,.12))}
-.det-login .login-lang-wrap.on-login .login-lang:hover{border-color:var(--teal)}` }} />
+.det-login .login-lang-wrap.on-welcome .lang-switch{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.22);box-shadow:none;backdrop-filter:blur(6px)}
+.det-login .login-lang-wrap.on-welcome .ls-opt{color:rgba(255,255,255,.75)}
+.det-login .login-lang-wrap.on-welcome .ls-opt:hover:not(.on){color:#fff;background:rgba(255,255,255,.12)}
+.det-login .login-lang-wrap.on-welcome .ls-opt.on{background:#fff;color:#0A4542;box-shadow:0 2px 8px rgba(0,0,0,.25)}` }} />
       <div className={`login-lang-wrap ${stage === 'welcome' ? 'on-welcome' : 'on-login'}`}>
         <LangSwitch className="login-lang" />
       </div>

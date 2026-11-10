@@ -45,6 +45,18 @@ export const AR_DATA: Record<string, string> = {
   'Supports test administration operations; data collection and first data preparation are done.':
     'يدعم عمليات إدارة الاختبارات، وقد اكتمل جمع البيانات وتهيئتها الأولية.',
 
+  // Updated summaries (Nov 2026)
+  'Tracks all digital transformation orders by section, with progress, governance status, two-way Google Sheets sync, Arabic and English, and a one-page KPI report for leadership.':
+    'يتابع جميع طلبات التحول الرقمي حسب القسم، مع نسبة الإنجاز وحالة الحوكمة، ومزامنة في الاتجاهين مع جداول Google، بالعربية والإنجليزية، وتقرير لمؤشرات الأداء في صفحة واحدة للقيادة.',
+  'Pairs each teacher with one observer for a single observation per term, with cross-shift coverage and a fair load across observers; reads the live teaching schedule and publishes only after approval.':
+    'يُسند لكل معلمة ملاحِظة واحدة لملاحظة صفية واحدة في الفصل، مع تبادل الفترتين الصباحية والمسائية وتوزيع عادل بين الملاحِظات، ويقرأ الجدول التدريسي المباشر ولا ينشر إلا بعد الاعتماد.',
+  'Evaluates faculty performance with the approved v2.0 rubric across the full evaluation cycle, with role-based access, bilingual exports, daily and weekly backups, and admin and coordinator guides.':
+    'يقيّم أداء عضوات هيئة التدريس بمعايير التقييم المعتمدة (الإصدار 2.0) عبر دورة التقييم كاملة، مع صلاحيات حسب الدور، وتصدير بلغتين، ونسخ احتياطي يومي وأسبوعي، وأدلة للمسؤولة والمنسقات.',
+  'Builds term schedules in phases: base schedule, faculty assignment and coverage changes, using the Scheduling Unit rules; the members-only teaching schedule portal shows the published schedule.':
+    'يبني الجداول الفصلية على مراحل: الجدول الأساسي، ثم إسناد عضوات هيئة التدريس، ثم تعديلات التغطية، وفق قواعد وحدة الجداول الدراسية، وتعرض بوابة الجدول التدريسي الخاصة بالأعضاء الجدول المنشور.',
+  'Tracks weekly curriculum delivery against the pacing guide, with university email sign-in, coordinator team views and an admin KPI dashboard for accreditation; shared for review before rollout.':
+    'يتابع تنفيذ المنهج أسبوعيًا مقارنةً بالخطة الزمنية، مع الدخول بالبريد الجامعي، وعرض فرق المنسقات، ولوحة مؤشرات للمسؤولة تخدم الاعتماد الأكاديمي، وقد شورك للمراجعة قبل التعميم.',
+
   // Units
   'Digital Transformation Committee': 'لجنة التحول الرقمي',
   'Digital Governance & Compliance Committee': 'لجنة الحوكمة الرقمية والامتثال',

@@ -1,6 +1,6 @@
 /* DET in Arabic: right-to-left layout. Loaded after det.css; every rule applies only when <html dir="rtl">. */
 [dir="rtl"] body, [dir="rtl"] .det-app, [dir="rtl"] .det-login, [dir="rtl"] input, [dir="rtl"] textarea, [dir="rtl"] select, [dir="rtl"] button {
-  font-family: 'IBM Plex Sans Arabic', 'IBM Plex Sans', 'Segoe UI', Tahoma, sans-serif;
+  font-family: 'IBM Plex Sans', 'IBM Plex Sans Arabic', 'Segoe UI', Tahoma, sans-serif;
 }
 /* Language switch */
 .lang-switch {display: inline-flex; align-items: center; gap: 2px; padding: 3px; border-radius: 999px;
@@ -104,3 +104,27 @@
 [dir="rtl"] .det-app .t-code, [dir="rtl"] .det-app tr.proj-row .muted, [dir="rtl"] .det-app tr.proj-row b {unicode-bidi: isolate;}
 /* Arabic words in a code-style label read better in the normal font */
 [lang="ar"] .det-app tr.proj-row .t-code {font-family: inherit; font-size: 12px;}
+
+/* ── Arabic typography ─────────────────────────────────────────────────────
+   Body: IBM Plex Sans Arabic with its real weights (no faked bold), a little larger and more open.
+   Headings and key labels: Noto Kufi Arabic, a calm formal Kufi. Latin text and numbers keep IBM Plex Sans. */
+[lang="ar"], [lang="ar"] .det-app, [lang="ar"] .det-login {--font: 'IBM Plex Sans', 'IBM Plex Sans Arabic', 'Segoe UI', Tahoma, sans-serif; --font-head: 'IBM Plex Sans', 'Noto Kufi Arabic', 'IBM Plex Sans Arabic', sans-serif;}
+[lang="ar"] .det-app {font-size: 14.5px; line-height: 1.65; -webkit-font-smoothing: antialiased; font-feature-settings: "kern";}
+[lang="ar"] .det-app *, [lang="ar"] .det-login * {letter-spacing: 0 !important;}
+[lang="ar"] .det-app .eyebrow, [lang="ar"] .det-app th, [lang="ar"] .det-app .ring-wrap .lbl span {text-transform: none;}
+[lang="ar"] .det-app .eyebrow {font-size: 12.5px; font-weight: 600;}
+[lang="ar"] .det-app th {font-size: 12.5px; font-weight: 600;}
+[lang="ar"] .det-app h1, [lang="ar"] .det-app h2, [lang="ar"] .det-app h3,
+[lang="ar"] .det-app .brand b, [lang="ar"] .det-app .t2-h, [lang="ar"] .det-app .k3-l, [lang="ar"] .det-app .card-h,
+[lang="ar"] .det-login h1, [lang="ar"] .det-login .title {font-family: var(--font-head); font-weight: 600;}
+[lang="ar"] .det-app .ph h1 {font-size: 25px; line-height: 1.5;}
+[lang="ar"] .det-app .hero h1 {font-size: 27px; line-height: 1.5;}
+[lang="ar"] .det-app .drawer-h h2 {font-size: 18px; line-height: 1.6;}
+[lang="ar"] .det-app .k3-l {font-size: 17px; line-height: 1.5;}
+[lang="ar"] .det-app .brand b {font-size: 14.5px; line-height: 1.5;}
+[lang="ar"] .det-app .t-name {font-weight: 500; line-height: 1.55;}
+[lang="ar"] .det-app p, [lang="ar"] .det-app .muted, [lang="ar"] .det-app td {line-height: 1.7;}
+[lang="ar"] .det-app b, [lang="ar"] .det-app strong {font-weight: 600;}
+/* Big numbers stay in the Latin face so they line up */
+[lang="ar"] .det-app .kpi .val, [lang="ar"] .det-app .hero-stat b, [lang="ar"] .det-app .mini b, [lang="ar"] .det-app .range-val,
+[lang="ar"] .det-app .ring-wrap .lbl b {font-family: 'IBM Plex Sans', sans-serif;}
